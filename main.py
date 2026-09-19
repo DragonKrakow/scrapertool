@@ -13,7 +13,7 @@ import asyncio
 import re
 import random
 import string
-from typing import Optional
+from typing import Optional, List
 import urllib.parse
 
 app = FastAPI(title="Product Importer API", version="1.0.0")
@@ -34,7 +34,7 @@ class ProductInput(BaseModel):
     qty: Optional[int] = None
 
 class ScrapeRequest(BaseModel):
-    products: list[ProductInput]
+    products: List[ProductInput]
     site: str
     default_qty: int = 10
 
