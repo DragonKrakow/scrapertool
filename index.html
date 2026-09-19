@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -38,7 +39,7 @@
     }
     label { display: block; font-weight: 600; margin-bottom: 8px; font-size: 0.9rem; }
     .hint { color: var(--muted); font-size: 0.8rem; margin-bottom: 8px; }
-    textarea, input[type="text"], input[type="url"], input[type="number"] {
+    textarea, input[type="url"], input[type="number"] {
       width: 100%;
       background: #0b1220;
       border: 1px solid var(--border);
@@ -49,7 +50,11 @@
       font-family: inherit;
       resize: vertical;
     }
-    textarea:focus, input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(47,125,255,.25); }
+    textarea:focus, input:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(47,125,255,.25);
+    }
     textarea { min-height: 140px; }
     .row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
     @media (max-width: 600px) { .row { grid-template-columns: 1fr; } }
@@ -69,7 +74,9 @@
     .stat { background: #0b1220; border-radius: 8px; padding: 14px; text-align: center; }
     .stat-value { font-size: 1.5rem; font-weight: 700; }
     .stat-label { font-size: 0.75rem; color: var(--muted); margin-top: 2px; }
-    .ok { color: var(--success); } .review { color: var(--warning); } .notfound { color: var(--danger); }
+    .ok { color: var(--success); }
+    .review { color: var(--warning); }
+    .notfound { color: var(--danger); }
     table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
     th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border); }
     th { color: var(--muted); font-weight: 600; font-size: 0.75rem; text-transform: uppercase; }
@@ -78,44 +85,25 @@
     .badge-review { background: rgba(227,160,8,.15); color: var(--warning); }
     .badge-notfound { background: rgba(239,91,91,.15); color: var(--danger); }
     .hidden { display: none; }
-    .notice {
-      background: rgba(47,125,255,.1); border: 1px solid rgba(47,125,255,.3);
-      border-radius: 8px; padding: 12px 16px; font-size: 0.85rem; color: #93c5fd; margin-bottom: 20px;
-    }
-    .notice.warn { background: rgba(227,160,8,.1); border-color: rgba(227,160,8,.3); color: #fbbf24; }
     .spinner {
       display: inline-block; width: 18px; height: 18px;
       border: 3px solid rgba(255,255,255,.3); border-top-color: white;
       border-radius: 50%; animation: spin .7s linear infinite;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
-    #apiEndpointRow { margin-bottom: 20px; }
   </style>
 </head>
 <body>
 <div class="container">
   <h1>Product Importer → CSV / XML</h1>
-  <p class="subtitle">Enter products and supplier URL – get a WooCommerce-ready file with real scraped data</p>
-
-  <div class="notice" id="apiNotice">
-    ⚙️ <strong>Backend URL not configured.</strong>
-    Enter your Render.com API URL below, or
-    <a href="https://github.com/YOUR_USERNAME/product-importer#deploy" target="_blank" style="color:#93c5fd">deploy the backend first</a>.
-  </div>
-
-  <!-- API config -->
-  <div class="card" id="apiEndpointRow">
-    <label for="apiUrl">Backend API URL</label>
-    <p class="hint">After deploying to Render, paste your URL here (e.g. https://product-importer-api.onrender.com). Saved in browser.</p>
-    <input type="url" id="apiUrl" placeholder="https://product-importer-api.onrender.com" />
-  </div>
+  <p class="subtitle">Lightweight tool – enter products and supplier page, generate WooCommerce-ready file</p>
 
   <div class="card">
     <label for="products">1. Product Titles / IDs</label>
     <p class="hint">
-      One product per line. You can enter just the title, or ID + title separated by comma or tab.<br>
+      One product per line. You can enter just the title, or ID + title separated by a comma or tab.<br>
       Example:<br>
-      ABC123, Bosch Drill X<br>
+      ABC123, Bosch Drill X |<br>
       DeWalt Screwdriver Y<br>
       78910 | Makita Saw Z
     </p>
@@ -135,7 +123,7 @@
     </div>
 
     <button class="btn btn-primary" id="btnProcess" style="margin-top:20px;">
-      🔍 Scrape & Generate Products
+      Generate products
     </button>
   </div>
 
@@ -145,7 +133,7 @@
     <div class="stats">
       <div class="stat"><div class="stat-value" id="statTotal">0</div><div class="stat-label">Total</div></div>
       <div class="stat"><div class="stat-value ok" id="statOk">0</div><div class="stat-label">OK</div></div>
-      <div class="stat"><div class="stat-value review" id="statReview">0</div><div class="stat-label">Review</div></div>
+      <div class="stat"><div class="stat-value review" id="statReview">0</div><div class="stat-label">To review</div></div>
       <div class="stat"><div class="stat-value notfound" id="statNotFound">0</div><div class="stat-label">Not found</div></div>
     </div>
 
@@ -162,32 +150,15 @@
     </div>
 
     <div class="actions">
-      <button class="btn btn-primary" id="btnCsv" style="flex:1;">⬇️ Download WooCommerce CSV</button>
-      <button class="btn btn-secondary" id="btnXml" style="flex:1;">⬇️ Download XML</button>
+      <button class="btn btn-primary" id="btnCsv" style="flex:1;">Download WooCommerce CSV</button>
+      <button class="btn btn-secondary" id="btnXml" style="flex:1;">Download XML</button>
     </div>
   </div>
 </div>
 
 <script>
-  // ── Persist API URL ─────────────────────────────────────────────────────
-  const apiInput = document.getElementById("apiUrl");
-  apiInput.value = localStorage.getItem("piApiUrl") || "";
-  apiInput.addEventListener("change", () => {
-    localStorage.setItem("piApiUrl", apiInput.value.trim());
-    updateNotice();
-  });
+  const API = "https://scrapertool.onrender.com";
 
-  function updateNotice() {
-    const notice = document.getElementById("apiNotice");
-    const url = apiInput.value.trim();
-    if (url) {
-      notice.className = "notice";
-      notice.innerHTML = `✅ Backend: <strong>${url}</strong>`;
-    }
-  }
-  updateNotice();
-
-  // ── Parse input lines ───────────────────────────────────────────────────
   function parseLines(text) {
     const lines = text.trim().split(/\r?\n/).filter(l => l.trim());
     return lines.map(line => {
@@ -195,8 +166,7 @@
       const parts = line.split(/[,|\t]/).map(p => p.trim()).filter(Boolean);
       if (parts.length >= 2) {
         if (/^\d/.test(parts[0]) || parts[0].length <= 12) {
-          id = parts[0];
-          title = parts.slice(1).join(" ");
+          id = parts[0]; title = parts.slice(1).join(" ");
         } else {
           title = parts.join(" ");
         }
@@ -207,18 +177,15 @@
     });
   }
 
-  // ── Scrape via backend ──────────────────────────────────────────────────
   let currentProducts = [];
 
   document.getElementById("btnProcess").addEventListener("click", async () => {
     const text = document.getElementById("products").value;
     const site = document.getElementById("site").value.trim();
     const defaultQty = parseInt(document.getElementById("defaultQty").value, 10) || 10;
-    const apiUrl = apiInput.value.trim().replace(/\/$/, "");
 
     if (!text.trim()) { alert("Enter at least one product."); return; }
     if (!site) { alert("Enter the supplier website URL."); return; }
-    if (!apiUrl) { alert("Enter the Backend API URL first."); return; }
 
     const btn = document.getElementById("btnProcess");
     btn.disabled = true;
@@ -226,26 +193,23 @@
 
     try {
       const products = parseLines(text);
-      const resp = await fetch(`${apiUrl}/scrape`, {
+      const resp = await fetch(`${API}/scrape`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ products, site, default_qty: defaultQty })
       });
-
       if (!resp.ok) {
         const err = await resp.json().catch(() => ({}));
         throw new Error(err.detail || `Server error ${resp.status}`);
       }
-
       const data = await resp.json();
       currentProducts = data.results;
       renderResults(currentProducts);
-
     } catch (e) {
       alert("Error: " + e.message);
     } finally {
       btn.disabled = false;
-      btn.innerHTML = '🔍 Scrape & Generate Products';
+      btn.innerHTML = "Generate products";
     }
   });
 
@@ -275,7 +239,6 @@
     document.getElementById("resultsCard").classList.remove("hidden");
   }
 
-  // ── CSV / XML export ────────────────────────────────────────────────────
   function toCSV(products) {
     const headers = [
       "Type","SKU","Name","Published","Is featured?","Visibility in catalog",
@@ -288,7 +251,7 @@
       "Attribute 4 name","Attribute 4 value(s)","Attribute 4 visible","Attribute 4 global",
       "Meta: _source_url","Meta: _source_site","Meta: _match_score"
     ];
-    const escape = v => {
+    const esc = v => {
       const s = String(v ?? "");
       return (s.includes('"') || s.includes(",") || s.includes("\n")) ? '"' + s.replace(/"/g,'""') + '"' : s;
     };
@@ -308,7 +271,7 @@
         p.category, (p.images || []).join(", "),
         ...attrCols,
         p.source_url, p.source_site, p.match
-      ].map(escape);
+      ].map(esc);
     });
     return [headers.join(","), ...rows.map(r => r.join(","))].join("\r\n");
   }
@@ -323,8 +286,7 @@
       xml += `    <regular_price>${p.regular_price}</regular_price>\n    <stock>${p.stock}</stock>\n`;
       xml += `    <short_description>${esc(p.short_description)}</short_description>\n`;
       xml += `    <description><![CDATA[${p.description}]]></description>\n`;
-      xml += `    <category>${esc(p.category)}</category>\n`;
-      xml += `    <images>\n`;
+      xml += `    <category>${esc(p.category)}</category>\n    <images>\n`;
       (p.images || []).forEach(i => { xml += `      <image>${esc(i)}</image>\n`; });
       xml += `    </images>\n    <attributes>\n`;
       Object.entries(p.attributes || {}).forEach(([k,v]) => {
