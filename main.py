@@ -1,7 +1,6 @@
 """
 Product Importer – FastAPI backend
-Real scraper: searches supplier site for each product,
-extracts price, stock, description, images.
+Mode: user pastes direct product URLs, backend fetches & parses each one.
 """
 
 from fastapi import FastAPI, HTTPException
@@ -13,12 +12,11 @@ import asyncio
 import re
 import random
 import string
-from typing import Optional, List
 import urllib.parse
+from typing import Optional, List
 
-app = FastAPI(title="Product Importer API", version="1.0.0")
+app = FastAPI(title="Product Importer API", version="2.0.0")
 
-# Allow all origins so the GitHub Pages frontend can call this
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -26,16 +24,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ── Models ──────────────────────────────────────────────────────────────────
+# ── Models ───────────────────────────────────────────────────────────────────
 
 class ProductInput(BaseModel):
     id: str = ""
-    title: str
+    title: str = ""
+    url: str = ""          # direct product URL
     qty: Optional[int] = None
 
 class ScrapeRequest(BaseModel):
     products: List[ProductInput]
-    site: str
+    site: str = ""
     default_qty: int = 10
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
@@ -46,17 +45,17 @@ HEADERS = {
         "AppleWebKit/537.36 (KHTML, like Gecko) "
         "Chrome/124.0.0.0 Safari/537.36"
     ),
-    "Accept-Language": "pl-PL,pl;q=0.9,en-US;q=0.8,en;q=0.7",
+    "Accept-Language": "pl-PL,pl;q=0.9,en-US;q=0.8",
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Accept-Encoding": "gzip, deflate, br",
+    "Connection": "keep-alive",
+    "Upgrade-Insecure-Requests": "1",
 }
 
 def clean_price(text: str) -> float:
-    """Extract a float price from a messy string."""
     if not text:
         return 0.0
-    # Remove currency symbols, spaces, then normalise decimal
     cleaned = re.sub(r"[^\d,\.]", "", text.strip())
-    # European format: 1.234,56  → 1234.56
     if "," in cleaned and "." in cleaned:
         cleaned = cleaned.replace(".", "").replace(",", ".")
     elif "," in cleaned:
@@ -66,178 +65,150 @@ def clean_price(text: str) -> float:
     except ValueError:
         return 0.0
 
-def similarity_score(query: str, found: str) -> float:
-    """Very simple word-overlap similarity."""
-    q_words = set(query.lower().split())
-    f_words = set(found.lower().split())
-    if not q_words:
-        return 0.0
-    overlap = len(q_words & f_words)
-    return round(overlap / max(len(q_words), len(f_words)), 2)
-
 def rand_sku(prefix: str = "") -> str:
     suffix = "".join(random.choices(string.digits, k=5))
     return f"{prefix[:3].upper()}-{suffix}" if prefix else f"SKU-{suffix}"
 
-# ── Scraping logic ────────────────────────────────────────────────────────────
+# ── Search on site ────────────────────────────────────────────────────────────
 
-async def search_product_on_site(client: httpx.AsyncClient, base_url: str, query: str) -> dict:
-    """
-    Try to find a product on the supplier site.
-    Strategy:
-      1. Try common search URL patterns (?search=, ?q=, /search?phrase=, etc.)
-      2. Parse the first result page for product info
-    """
+async def search_on_site(client: httpx.AsyncClient, base_url: str, query: str) -> str:
+    """Try common search URL patterns, return first working result URL."""
     base = base_url.rstrip("/")
-    encoded_query = urllib.parse.quote_plus(query)
-
-    search_patterns = [
-        f"{base}/search?q={encoded_query}",
-        f"{base}/szukaj?q={encoded_query}",
-        f"{base}/?s={encoded_query}",
-        f"{base}/search?phrase={encoded_query}",
-        f"{base}/catalogsearch/result/?q={encoded_query}",
-        f"{base}/search?keyword={encoded_query}",
+    q = urllib.parse.quote_plus(query)
+    patterns = [
+        f"{base}/search?q={q}",
+        f"{base}/?s={q}",
+        f"{base}/szukaj?q={q}",
+        f"{base}/search?phrase={q}",
+        f"{base}/search?keyword={q}",
+        f"{base}/catalogsearch/result/?q={q}",
+        f"{base}/search?search={q}",
     ]
-
-    html = None
-    search_url_used = None
-
-    for url in search_patterns:
+    for url in patterns:
         try:
-            r = await client.get(url, headers=HEADERS, follow_redirects=True, timeout=12)
-            if r.status_code == 200 and len(r.text) > 500:
-                html = r.text
-                search_url_used = url
-                break
+            r = await client.get(url, headers=HEADERS, follow_redirects=True, timeout=10)
+            if r.status_code == 200 and len(r.text) > 1000:
+                # find first product link
+                soup = BeautifulSoup(r.text, "lxml")
+                q_words = set(query.lower().split())
+                best_link, best_score = None, 0.0
+                for a in soup.find_all("a", href=True):
+                    text = a.get_text(" ", strip=True)
+                    words = set(text.lower().split())
+                    if not words:
+                        continue
+                    score = len(q_words & words) / max(len(q_words), len(words))
+                    if score > best_score and score > 0.25:
+                        best_score = score
+                        best_link = a["href"]
+                if best_link:
+                    return urllib.parse.urljoin(base, best_link), best_score
         except Exception:
             continue
+    return None, 0.0
 
-    if not html:
-        return {"status": "not_found", "source_url": "", "notes": "Site unreachable or no search endpoint found"}
+# ── Parse product page ────────────────────────────────────────────────────────
 
-    soup = BeautifulSoup(html, "html.parser")
+def parse_page(html: str, url: str, match: float, title_hint: str = "") -> dict:
+    soup = BeautifulSoup(html, "lxml")
 
-    # ── Try to find a product link from search results ──
-    # Heuristic: look for <a> tags that contain the product name words
-    query_words = set(query.lower().split())
-    best_link = None
-    best_score = 0.0
-
-    for a in soup.find_all("a", href=True):
-        text = a.get_text(" ", strip=True)
-        score = similarity_score(query, text)
-        if score > best_score and score > 0.3:
-            best_score = score
-            best_link = a["href"]
-
-    if not best_link:
-        return {
-            "status": "not_found",
-            "source_url": search_url_used,
-            "notes": "No matching product link found in search results"
-        }
-
-    # Resolve relative URL
-    product_url = urllib.parse.urljoin(base, best_link)
-
-    # ── Fetch the product page ──
-    try:
-        pr = await client.get(product_url, headers=HEADERS, follow_redirects=True, timeout=12)
-        if pr.status_code != 200:
-            return {"status": "not_found", "source_url": product_url, "notes": f"Product page returned {pr.status_code}"}
-        product_html = pr.text
-    except Exception as e:
-        return {"status": "not_found", "source_url": product_url, "notes": str(e)}
-
-    return parse_product_page(product_html, product_url, query, best_score)
-
-
-def parse_product_page(html: str, url: str, query: str, match_score: float) -> dict:
-    """Extract product fields from a product page using heuristics."""
-    soup = BeautifulSoup(html, "html.parser")
-
-    # ── Title ──
+    # Title
     title = ""
-    for sel in ["h1.product-title", "h1.product_title", "h1[itemprop='name']", "h1"]:
+    for sel in ["h1.product-title","h1.product_title","h1[itemprop='name']","h1"]:
         el = soup.select_one(sel)
         if el:
             title = el.get_text(" ", strip=True)
             break
+    if not title:
+        title = title_hint
 
-    # ── Price ──
+    # Price - try many selectors
     price = 0.0
-    for sel in [
-        "[itemprop='price']", ".price", ".product-price", ".price-box",
-        ".woocommerce-Price-amount", ".price__current", ".summary .price"
-    ]:
+    price_selectors = [
+        "[itemprop='price']",
+        ".price ins .woocommerce-Price-amount",
+        ".woocommerce-Price-amount",
+        ".price__current",
+        ".product-price",
+        ".price-box .price",
+        ".price",
+        ".summary .price",
+        ".product__price",
+        "span.price",
+    ]
+    for sel in price_selectors:
         el = soup.select_one(sel)
         if el:
-            price = clean_price(el.get_text())
+            # try content attribute first (itemprop)
+            p = el.get("content") or el.get_text()
+            price = clean_price(p)
             if price:
                 break
 
-    # ── Stock ──
+    # Stock
     stock_text = ""
-    for sel in [
-        "[itemprop='availability']", ".stock", ".availability",
-        ".product-availability", ".qty-box", ".in-stock"
-    ]:
+    for sel in ["[itemprop='availability']",".stock",".availability",".in-stock",".product-availability"]:
         el = soup.select_one(sel)
         if el:
             stock_text = el.get_text(" ", strip=True).lower()
             break
-    in_stock = ("stock" in stock_text and "out" not in stock_text) or \
-               ("dostępn" in stock_text) or \
-               ("available" in stock_text) or \
-               (not stock_text)  # assume in stock if we can't tell
+    in_stock = (
+        "instock" in stock_text.replace(" ","") or
+        "dostępn" in stock_text or
+        "available" in stock_text or
+        "in stock" in stock_text or
+        not stock_text
+    )
 
-    # ── Description ──
+    # Description
     short_desc = ""
     long_desc = ""
-    for sel in [".short-description", ".product-short-description", "[itemprop='description']"]:
+    for sel in [".short-description",".product-short-description","[itemprop='description']",".woocommerce-product-details__short-description"]:
         el = soup.select_one(sel)
         if el:
-            short_desc = el.get_text(" ", strip=True)[:300]
-            break
-    for sel in ["#description", ".description", ".product-description", ".tab-content"]:
-        el = soup.select_one(sel)
-        if el:
-            long_desc = str(el)[:2000]
+            short_desc = el.get_text(" ", strip=True)[:400]
             break
     if not short_desc:
-        short_desc = (soup.find("meta", {"name": "description"}) or {}).get("content", "")[:300]
+        meta = soup.find("meta", {"name": "description"})
+        if meta:
+            short_desc = meta.get("content", "")[:400]
+    for sel in ["#description",".description",".product-description",".tab-content #tab-description",".woocommerce-Tabs-panel--description"]:
+        el = soup.select_one(sel)
+        if el:
+            long_desc = str(el)[:3000]
+            break
 
-    # ── Images ──
+    # Images
     images = []
-    for img in soup.select(".product-gallery img, .woocommerce-product-gallery img, [itemprop='image'], .product img"):
-        src = img.get("src") or img.get("data-src") or img.get("data-lazy-src")
+    for img in soup.select(".woocommerce-product-gallery img, .product-gallery img, [itemprop='image'], .product__media img, .product-images img"):
+        src = img.get("src") or img.get("data-src") or img.get("data-lazy-src") or img.get("data-large_image")
         if src and not src.startswith("data:") and src not in images:
             images.append(urllib.parse.urljoin(url, src))
         if len(images) >= 5:
             break
 
-    # ── Brand / SKU ──
+    # Brand
     brand = ""
-    for sel in ["[itemprop='brand']", ".product-brand", ".brand"]:
+    for sel in ["[itemprop='brand']",".product-brand",".brand","span.brand"]:
         el = soup.select_one(sel)
         if el:
             brand = el.get_text(" ", strip=True)
             break
 
-    sku_el = soup.select_one("[itemprop='sku'], .sku")
+    # SKU
+    sku_el = soup.select_one("[itemprop='sku'],.sku,.product-sku")
     sku = sku_el.get_text(strip=True) if sku_el else ""
 
-    # ── Category ──
+    # Category from breadcrumb
     category = ""
-    breadcrumb = soup.select(".breadcrumb a, .breadcrumbs a, nav[aria-label='breadcrumb'] a")
-    if len(breadcrumb) >= 2:
-        category = " > ".join(a.get_text(strip=True) for a in breadcrumb[1:])
+    crumbs = soup.select(".breadcrumb a,.breadcrumbs a,nav[aria-label='breadcrumb'] a,.woocommerce-breadcrumb a")
+    if len(crumbs) >= 2:
+        category = " > ".join(a.get_text(strip=True) for a in crumbs[1:])
 
-    # ── Attributes ──
+    # Attributes from spec table
     attributes = {}
-    for row in soup.select("table.shop_attributes tr, .product-attributes tr, .specifications tr"):
-        cells = row.find_all(["th", "td"])
+    for row in soup.select("table.shop_attributes tr,.product-attributes tr,.specifications tr,.woocommerce-product-attributes tr"):
+        cells = row.find_all(["th","td"])
         if len(cells) >= 2:
             k = cells[0].get_text(strip=True)
             v = cells[1].get_text(strip=True)
@@ -246,13 +217,16 @@ def parse_product_page(html: str, url: str, query: str, match_score: float) -> d
         if len(attributes) >= 8:
             break
 
-    status = "ok" if match_score >= 0.85 else "review"
+    # Weight/dimensions
+    weight = attributes.pop("Weight","") or attributes.pop("Waga","") or attributes.pop("Gewicht","")
+    
+    status = "ok" if match >= 0.7 else "review"
 
     return {
         "status": status,
-        "match": match_score,
+        "match": round(match, 2),
         "notes": "" if status == "ok" else "Partial match – please verify",
-        "title": title or query,
+        "title": title,
         "brand": brand,
         "sku": sku,
         "price": price,
@@ -261,21 +235,64 @@ def parse_product_page(html: str, url: str, query: str, match_score: float) -> d
         "short_description": short_desc,
         "description": long_desc,
         "category": category,
-        "weight": "",
-        "length": "",
-        "width": "",
-        "height": "",
+        "weight": weight,
+        "length": "", "width": "", "height": "",
         "images": images,
         "attributes": attributes,
         "source_url": url,
-        "source_site": url.split("/")[0] + "//" + url.split("/")[2] if "//" in url else url,
+        "source_site": urllib.parse.urlparse(url).scheme + "://" + urllib.parse.urlparse(url).netloc,
     }
+
+# ── Main scrape handler ───────────────────────────────────────────────────────
+
+async def scrape_one(client: httpx.AsyncClient, product: ProductInput, site: str, default_qty: int) -> dict:
+    url = product.url.strip()
+    match = 1.0
+
+    # If no direct URL given, try searching
+    if not url and site and product.title:
+        url, match = await search_on_site(client, site, product.title)
+
+    if not url:
+        return {
+            "status": "not_found", "match": 0, "notes": "No URL provided and search failed",
+            "title": product.title, "brand": "", "sku": product.id or rand_sku(product.title),
+            "price": 0, "regular_price": 0, "stock": product.qty or default_qty,
+            "short_description": "", "description": "", "category": "",
+            "weight": "", "length": "", "width": "", "height": "",
+            "images": [], "attributes": {}, "source_url": "", "source_site": site,
+        }
+
+    try:
+        r = await client.get(url, headers=HEADERS, follow_redirects=True, timeout=15)
+        if r.status_code != 200:
+            raise Exception(f"HTTP {r.status_code}")
+        result = parse_page(r.text, url, match, product.title)
+    except Exception as e:
+        result = {
+            "status": "not_found", "match": 0, "notes": str(e),
+            "title": product.title, "brand": "", "sku": product.id or rand_sku(product.title),
+            "price": 0, "regular_price": 0, "stock": product.qty or default_qty,
+            "short_description": "", "description": "", "category": "",
+            "weight": "", "length": "", "width": "", "height": "",
+            "images": [], "attributes": {}, "source_url": url, "source_site": site,
+        }
+
+    # Override with user-supplied values
+    if not result.get("sku"):
+        result["sku"] = product.id or rand_sku(product.title or result.get("title",""))
+    if product.qty is not None:
+        result["stock"] = product.qty
+    elif not result.get("stock"):
+        result["stock"] = default_qty
+
+    return result
 
 # ── Routes ───────────────────────────────────────────────────────────────────
 
 @app.get("/")
 def root():
-    return {"status": "ok", "message": "Product Importer API is running"}
+    return {"status": "ok", "message": "Product Importer API v2"}
 
 @app.get("/health")
 def health():
@@ -286,56 +303,23 @@ async def scrape(req: ScrapeRequest):
     if not req.products:
         raise HTTPException(400, "No products provided")
     if len(req.products) > 50:
-        raise HTTPException(400, "Maximum 50 products per request")
+        raise HTTPException(400, "Max 50 products per request")
 
-    base_url = req.site.strip().rstrip("/")
-    if not base_url.startswith("http"):
-        base_url = "https://" + base_url
+    async with httpx.AsyncClient(timeout=20) as client:
+        tasks = [scrape_one(client, p, req.site, req.default_qty) for p in req.products]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
 
-    results = []
-
-    async with httpx.AsyncClient(timeout=15) as client:
-        tasks = [
-            search_product_on_site(client, base_url, p.title)
-            for p in req.products
-        ]
-        scraped = await asyncio.gather(*tasks, return_exceptions=True)
-
-    for i, (product_input, result) in enumerate(zip(req.products, scraped)):
-        if isinstance(result, Exception):
-            result = {
-                "status": "not_found",
-                "source_url": "",
-                "notes": str(result),
-                "title": product_input.title,
-                "brand": "",
-                "sku": product_input.id or rand_sku(),
-                "price": 0,
-                "regular_price": 0,
-                "stock": product_input.qty or req.default_qty,
-                "short_description": "",
-                "description": "",
-                "category": "",
-                "weight": "",
-                "length": "",
-                "width": "",
-                "height": "",
-                "images": [],
-                "attributes": {},
-                "match": 0,
-                "source_site": base_url,
+    final = []
+    for i, (p, r) in enumerate(zip(req.products, results)):
+        if isinstance(r, Exception):
+            r = {
+                "status": "not_found", "match": 0, "notes": str(r),
+                "title": p.title, "brand": "", "sku": p.id or rand_sku(p.title),
+                "price": 0, "regular_price": 0, "stock": p.qty or req.default_qty,
+                "short_description": "", "description": "", "category": "",
+                "weight": "", "length": "", "width": "", "height": "",
+                "images": [], "attributes": {}, "source_url": "", "source_site": req.site,
             }
+        final.append(r)
 
-        # Fill in input-provided values that override scraped data
-        if not result.get("sku"):
-            result["sku"] = product_input.id or rand_sku(product_input.title)
-        if product_input.qty is not None:
-            result["stock"] = product_input.qty
-        elif not result.get("stock"):
-            result["stock"] = req.default_qty
-        if not result.get("ean"):
-            result["ean"] = ""
-
-        results.append(result)
-
-    return {"results": results, "total": len(results)}
+    return {"results": final, "total": len(final)}
