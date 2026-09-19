@@ -5,7 +5,7 @@ Mode: user pastes direct product URLs, backend fetches & parses each one.
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 import httpx
 from bs4 import BeautifulSoup
 import asyncio
@@ -27,15 +27,19 @@ app.add_middleware(
 # ── Models ───────────────────────────────────────────────────────────────────
 
 class ProductInput(BaseModel):
-    id: str = ""
-    title: str = ""
-    url: str = ""          # direct product URL
-    qty: Optional[int] = None
+    product_id: str = Field("", alias="id")
+    title: str = Field("")
+    url: str = Field("")
+    qty: Optional[int] = Field(None)
+
+    class Config:
+        populate_by_name = True
+        allow_population_by_field_name = True
 
 class ScrapeRequest(BaseModel):
     products: List[ProductInput]
-    site: str = ""
-    default_qty: int = 10
+    site: str = Field("")
+    default_qty: int = Field(10)
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -256,7 +260,7 @@ async def scrape_one(client: httpx.AsyncClient, product: ProductInput, site: str
     if not url:
         return {
             "status": "not_found", "match": 0, "notes": "No URL provided and search failed",
-            "title": product.title, "brand": "", "sku": product.id or rand_sku(product.title),
+            "title": product.title, "brand": "", "sku": product.product_id or rand_sku(product.title),
             "price": 0, "regular_price": 0, "stock": product.qty or default_qty,
             "short_description": "", "description": "", "category": "",
             "weight": "", "length": "", "width": "", "height": "",
@@ -271,7 +275,7 @@ async def scrape_one(client: httpx.AsyncClient, product: ProductInput, site: str
     except Exception as e:
         result = {
             "status": "not_found", "match": 0, "notes": str(e),
-            "title": product.title, "brand": "", "sku": product.id or rand_sku(product.title),
+            "title": product.title, "brand": "", "sku": product.product_id or rand_sku(product.title),
             "price": 0, "regular_price": 0, "stock": product.qty or default_qty,
             "short_description": "", "description": "", "category": "",
             "weight": "", "length": "", "width": "", "height": "",
@@ -280,7 +284,7 @@ async def scrape_one(client: httpx.AsyncClient, product: ProductInput, site: str
 
     # Override with user-supplied values
     if not result.get("sku"):
-        result["sku"] = product.id or rand_sku(product.title or result.get("title",""))
+        result["sku"] = product.product_id or rand_sku(product.title or result.get("title",""))
     if product.qty is not None:
         result["stock"] = product.qty
     elif not result.get("stock"):
@@ -314,7 +318,7 @@ async def scrape(req: ScrapeRequest):
         if isinstance(r, Exception):
             r = {
                 "status": "not_found", "match": 0, "notes": str(r),
-                "title": p.title, "brand": "", "sku": p.id or rand_sku(p.title),
+                "title": p.title, "brand": "", "sku": p.product_id or rand_sku(p.title),
                 "price": 0, "regular_price": 0, "stock": p.qty or req.default_qty,
                 "short_description": "", "description": "", "category": "",
                 "weight": "", "length": "", "width": "", "height": "",
