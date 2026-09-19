@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -20,62 +21,42 @@
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-      background: var(--bg);
-      color: var(--text);
-      min-height: 100vh;
-      padding: 24px;
-      line-height: 1.5;
+      background: var(--bg); color: var(--text);
+      min-height: 100vh; padding: 24px; line-height: 1.5;
     }
     .container { max-width: 900px; margin: 0 auto; }
     h1 { font-size: 1.75rem; margin-bottom: 4px; }
     .subtitle { color: var(--muted); margin-bottom: 28px; font-size: 0.95rem; }
-    .card {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 24px;
-      margin-bottom: 20px;
-    }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 24px; margin-bottom: 20px; }
     label { display: block; font-weight: 600; margin-bottom: 8px; font-size: 0.9rem; }
-    .hint { color: var(--muted); font-size: 0.8rem; margin-bottom: 8px; }
+    .hint { color: var(--muted); font-size: 0.8rem; margin-bottom: 10px; }
+    .hint code { background: #0b1220; border: 1px solid var(--border); border-radius: 4px; padding: 1px 5px; font-size: 0.8rem; color: #93c5fd; }
     textarea, input[type="url"], input[type="number"] {
-      width: 100%;
-      background: #0b1220;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 12px 14px;
-      color: var(--text);
-      font-size: 0.95rem;
-      font-family: inherit;
-      resize: vertical;
+      width: 100%; background: #0b1220; border: 1px solid var(--border);
+      border-radius: 8px; padding: 12px 14px; color: var(--text);
+      font-size: 0.95rem; font-family: inherit; resize: vertical;
     }
-    textarea:focus, input:focus {
-      outline: none;
-      border-color: var(--accent);
-      box-shadow: 0 0 0 3px rgba(47,125,255,.25);
-    }
-    textarea { min-height: 140px; }
+    textarea:focus, input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(47,125,255,.25); }
+    textarea { min-height: 160px; }
     .row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
     @media (max-width: 600px) { .row { grid-template-columns: 1fr; } }
-    .btn {
-      display: inline-flex; align-items: center; justify-content: center;
-      gap: 8px; padding: 12px 20px; border: none; border-radius: 8px;
-      font-size: 0.95rem; font-weight: 600; cursor: pointer; transition: background 0.15s;
-    }
+    .mode-tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+    .tab { padding: 7px 16px; border-radius: 6px; border: 1px solid var(--border); background: transparent; color: var(--muted); font-size: 0.85rem; font-weight: 600; cursor: pointer; transition: all .15s; }
+    .tab.active { background: var(--accent); color: white; border-color: var(--accent); }
+    .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 12px 20px; border: none; border-radius: 8px; font-size: 0.95rem; font-weight: 600; cursor: pointer; transition: background .15s; }
     .btn-primary { background: var(--accent); color: white; width: 100%; }
     .btn-primary:hover { background: var(--accent-hover); }
     .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
     .btn-secondary { background: transparent; border: 1px solid var(--border); color: var(--text); }
     .btn-secondary:hover { background: #1a2740; }
+    .btn-sm { padding: 7px 14px; font-size: 0.8rem; width: auto; }
     .actions { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 16px; }
     .stats { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; margin-bottom: 16px; }
     @media (max-width: 600px) { .stats { grid-template-columns: 1fr 1fr; } }
     .stat { background: #0b1220; border-radius: 8px; padding: 14px; text-align: center; }
     .stat-value { font-size: 1.5rem; font-weight: 700; }
     .stat-label { font-size: 0.75rem; color: var(--muted); margin-top: 2px; }
-    .ok { color: var(--success); }
-    .review { color: var(--warning); }
-    .notfound { color: var(--danger); }
+    .ok { color: var(--success); } .review { color: var(--warning); } .notfound { color: var(--danger); }
     table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
     th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border); }
     th { color: var(--muted); font-weight: 600; font-size: 0.75rem; text-transform: uppercase; }
@@ -84,12 +65,13 @@
     .badge-review { background: rgba(227,160,8,.15); color: var(--warning); }
     .badge-notfound { background: rgba(239,91,91,.15); color: var(--danger); }
     .hidden { display: none; }
-    .spinner {
-      display: inline-block; width: 18px; height: 18px;
-      border: 3px solid rgba(255,255,255,.3); border-top-color: white;
-      border-radius: 50%; animation: spin .7s linear infinite;
-    }
+    .notice { background: rgba(47,125,255,.1); border: 1px solid rgba(47,125,255,.3); border-radius: 8px; padding: 12px 16px; font-size: 0.85rem; color: #93c5fd; margin-bottom: 20px; }
+    .notice.warn { background: rgba(227,160,8,.1); border-color: rgba(227,160,8,.3); color: #fbbf24; }
+    .spinner { display: inline-block; width: 18px; height: 18px; border: 3px solid rgba(255,255,255,.3); border-top-color: white; border-radius: 50%; animation: spin .7s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
+    .wake-bar { display: flex; align-items: center; gap: 10px; background: rgba(227,160,8,.08); border: 1px solid rgba(227,160,8,.25); border-radius: 8px; padding: 10px 14px; margin-bottom: 16px; font-size: 0.82rem; color: #fbbf24; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--warning); flex-shrink: 0; }
+    .dot.green { background: var(--success); }
   </style>
 </head>
 <body>
@@ -97,27 +79,62 @@
   <h1>Product Importer → CSV / XML</h1>
   <p class="subtitle">Lightweight tool – enter products and supplier page, generate WooCommerce-ready file</p>
 
-  <div class="card">
-    <label for="products">1. Product Titles / IDs</label>
-    <p class="hint">
-      One product per line. You can enter just the title, or ID + title separated by a comma or tab.<br>
-      Example:<br>
-      ABC123, Bosch Drill X |<br>
-      DeWalt Screwdriver Y<br>
-      78910 | Makita Saw Z
-    </p>
-    <textarea id="products" placeholder="ABC123, Bosch Drill X&#10;DeWalt Screwdriver Y&#10;Makita DHP485Z"></textarea>
+  <!-- Backend status -->
+  <div class="wake-bar" id="wakeBar">
+    <span class="dot" id="statusDot"></span>
+    <span id="statusText">Checking backend…</span>
+    <button class="btn btn-secondary btn-sm" id="btnWake" style="margin-left:auto;">Wake up backend</button>
+  </div>
 
-    <div class="row" style="margin-top:16px;">
-      <div>
-        <label for="site">2. Supplier website URL</label>
-        <p class="hint">E.g.: https://www.supplier.com</p>
-        <input type="url" id="site" placeholder="https://www.supplier.com" />
+  <div class="card">
+    <!-- Mode tabs -->
+    <div class="mode-tabs">
+      <button class="tab active" id="tabSearch" onclick="setMode('search')">🔍 Search by title</button>
+      <button class="tab" id="tabUrl" onclick="setMode('url')">🔗 Direct product URLs</button>
+    </div>
+
+    <!-- SEARCH MODE -->
+    <div id="modeSearch">
+      <label for="products">1. Product Titles / IDs</label>
+      <p class="hint">
+        One product per line. You can enter just the title, or ID + title separated by a comma or tab.<br>
+        Example: <code>ABC123, Bosch Drill X</code> &nbsp;|&nbsp; <code>DeWalt Screwdriver Y</code> &nbsp;|&nbsp; <code>78910 | Makita Saw Z</code>
+      </p>
+      <textarea id="products" placeholder="ABC123, Bosch Drill X&#10;DeWalt Screwdriver Y&#10;Makita DHP485Z"></textarea>
+
+      <div class="row" style="margin-top:16px;">
+        <div>
+          <label for="site">2. Supplier website URL</label>
+          <p class="hint">E.g.: <code>https://www.supplier.com</code></p>
+          <input type="url" id="site" placeholder="https://www.supplier.com" />
+        </div>
+        <div>
+          <label for="defaultQty">Default quantity (stock)</label>
+          <p class="hint">Used when no quantity is in the line</p>
+          <input type="number" id="defaultQty" value="10" min="1" />
+        </div>
       </div>
-      <div>
-        <label for="defaultQty">Default quantity (stock)</label>
-        <p class="hint">Used when no quantity is in the line</p>
-        <input type="number" id="defaultQty" value="10" min="1" />
+      <div class="notice warn" style="margin-top:14px; margin-bottom:0;">
+        ⚠️ <strong>Search mode</strong> may not work on sites with Cloudflare or bot protection.
+        If it gets stuck, switch to <strong>Direct URL mode</strong> and paste the exact product page links.
+      </div>
+    </div>
+
+    <!-- URL MODE -->
+    <div id="modeUrl" class="hidden">
+      <label for="urlProducts">Product URLs — one per line</label>
+      <p class="hint">
+        Paste the exact product page URL. Optionally add SKU or quantity:<br>
+        <code>https://shop.com/product/bosch-drill</code><br>
+        <code>ABC123 | https://shop.com/product/bosch-drill | qty:5</code>
+      </p>
+      <textarea id="urlProducts" placeholder="https://www.supplier.com/product/bosch-drill-x&#10;https://www.supplier.com/product/dewalt-y"></textarea>
+      <div class="row" style="margin-top:16px;">
+        <div>
+          <label for="defaultQty2">Default quantity (stock)</label>
+          <p class="hint">Used when no qty: is in the line</p>
+          <input type="number" id="defaultQty2" value="10" min="1" />
+        </div>
       </div>
     </div>
 
@@ -128,26 +145,18 @@
 
   <div class="card hidden" id="resultsCard">
     <h2 style="margin-bottom:16px;font-size:1.15rem;">Results</h2>
-
     <div class="stats">
       <div class="stat"><div class="stat-value" id="statTotal">0</div><div class="stat-label">Total</div></div>
       <div class="stat"><div class="stat-value ok" id="statOk">0</div><div class="stat-label">OK</div></div>
       <div class="stat"><div class="stat-value review" id="statReview">0</div><div class="stat-label">To review</div></div>
       <div class="stat"><div class="stat-value notfound" id="statNotFound">0</div><div class="stat-label">Not found</div></div>
     </div>
-
     <div style="overflow-x:auto; max-height:360px;">
       <table>
-        <thead>
-          <tr>
-            <th>Status</th><th>SKU</th><th>Title</th><th>Brand</th>
-            <th>Price</th><th>Stock</th><th>Match</th>
-          </tr>
-        </thead>
+        <thead><tr><th>Status</th><th>SKU</th><th>Title</th><th>Brand</th><th>Price</th><th>Stock</th><th>Match</th></tr></thead>
         <tbody id="resultsBody"></tbody>
       </table>
     </div>
-
     <div class="actions">
       <button class="btn btn-primary" id="btnCsv" style="flex:1;">Download WooCommerce CSV</button>
       <button class="btn btn-secondary" id="btnXml" style="flex:1;">Download XML</button>
@@ -157,41 +166,109 @@
 
 <script>
   const API = "https://scrapertool.onrender.com";
+  let currentMode = "search";
+  let currentProducts = [];
 
-  function parseLines(text) {
-    const lines = text.trim().split(/\r?\n/).filter(l => l.trim());
-    return lines.map(line => {
+  // ── Backend wake check ──────────────────────────────────────────────────
+  async function checkBackend() {
+    try {
+      const r = await fetch(`${API}/health`, { signal: AbortSignal.timeout(8000) });
+      if (r.ok) {
+        document.getElementById("statusDot").className = "dot green";
+        document.getElementById("statusText").textContent = "Backend is awake and ready";
+        document.getElementById("btnWake").style.display = "none";
+        return true;
+      }
+    } catch(e) {}
+    document.getElementById("statusDot").className = "dot";
+    document.getElementById("statusText").textContent = "Backend is sleeping — click Wake up (takes ~30 sec)";
+    return false;
+  }
+
+  document.getElementById("btnWake").addEventListener("click", async () => {
+    const btn = document.getElementById("btnWake");
+    btn.disabled = true; btn.textContent = "Waking up…";
+    document.getElementById("statusText").textContent = "Waking up backend, please wait…";
+    // Poll until alive
+    for (let i = 0; i < 12; i++) {
+      await new Promise(r => setTimeout(r, 5000));
+      if (await checkBackend()) break;
+    }
+    btn.disabled = false; btn.textContent = "Wake up backend";
+  });
+
+  checkBackend();
+
+  // ── Mode toggle ─────────────────────────────────────────────────────────
+  function setMode(m) {
+    currentMode = m;
+    document.getElementById("modeSearch").classList.toggle("hidden", m !== "search");
+    document.getElementById("modeUrl").classList.toggle("hidden", m !== "url");
+    document.getElementById("tabSearch").classList.toggle("active", m === "search");
+    document.getElementById("tabUrl").classList.toggle("active", m === "url");
+  }
+
+  // ── Parse search-mode lines ─────────────────────────────────────────────
+  function parseSearchLines(text) {
+    return text.trim().split(/\r?\n/).filter(l => l.trim()).map(line => {
       let id = "", title = line.trim(), qty = null;
       const parts = line.split(/[,|\t]/).map(p => p.trim()).filter(Boolean);
-      if (parts.length >= 2) {
-        if (/^\d/.test(parts[0]) || parts[0].length <= 12) {
-          id = parts[0]; title = parts.slice(1).join(" ");
-        } else {
-          title = parts.join(" ");
-        }
+      if (parts.length >= 2 && (/^\d/.test(parts[0]) || parts[0].length <= 12)) {
+        id = parts[0]; title = parts.slice(1).join(" ");
+      } else if (parts.length >= 2) {
+        title = parts.join(" ");
       }
-      const qtyMatch = title.match(/\s+(?:x|qty|szt)?\s*(\d+)\s*(?:pcs|szt)?$/i);
-      if (qtyMatch) { qty = parseInt(qtyMatch[1], 10); title = title.replace(qtyMatch[0], "").trim(); }
-      return { id, title, qty };
+      const qm = title.match(/\s+(?:x|qty|szt)?\s*(\d+)\s*(?:pcs|szt)?$/i);
+      if (qm) { qty = parseInt(qm[1],10); title = title.replace(qm[0],"").trim(); }
+      return { id, title, qty, url: "" };
     });
   }
 
-  let currentProducts = [];
+  // ── Parse URL-mode lines ────────────────────────────────────────────────
+  function parseUrlLines(text) {
+    return text.trim().split(/\r?\n/).filter(l => l.trim()).map(line => {
+      const parts = line.split(/\s*\|\s*/).map(p => p.trim()).filter(Boolean);
+      let id = "", url = "", qty = null, title = "";
+      for (const p of parts) {
+        if (p.startsWith("http")) url = p;
+        else if (/^qty:\s*\d+/i.test(p)) qty = parseInt(p.replace(/[^\d]/g,""),10);
+        else if (!id) id = p;
+      }
+      // if only one part and it's a URL
+      if (!url && parts.length === 1 && parts[0].startsWith("http")) url = parts[0];
+      // derive title from URL path
+      if (url && !title) {
+        const slug = url.split("/").filter(Boolean).pop() || "";
+        title = slug.replace(/[-_]/g," ").replace(/\.[^.]+$/,"");
+      }
+      return { id, title, qty, url };
+    });
+  }
 
+  // ── Scrape ──────────────────────────────────────────────────────────────
   document.getElementById("btnProcess").addEventListener("click", async () => {
-    const text = document.getElementById("products").value;
-    const site = document.getElementById("site").value.trim();
-    const defaultQty = parseInt(document.getElementById("defaultQty").value, 10) || 10;
+    let products, site = "", defaultQty;
 
-    if (!text.trim()) { alert("Enter at least one product."); return; }
-    if (!site) { alert("Enter the supplier website URL."); return; }
+    if (currentMode === "search") {
+      const text = document.getElementById("products").value;
+      site = document.getElementById("site").value.trim();
+      defaultQty = parseInt(document.getElementById("defaultQty").value,10) || 10;
+      if (!text.trim()) { alert("Enter at least one product."); return; }
+      if (!site) { alert("Enter the supplier website URL."); return; }
+      products = parseSearchLines(text);
+    } else {
+      const text = document.getElementById("urlProducts").value;
+      defaultQty = parseInt(document.getElementById("defaultQty2").value,10) || 10;
+      if (!text.trim()) { alert("Enter at least one product URL."); return; }
+      products = parseUrlLines(text);
+      if (!products.some(p => p.url)) { alert("No valid URLs found. Make sure each line starts with https://"); return; }
+    }
 
     const btn = document.getElementById("btnProcess");
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner"></span> Scraping…';
 
     try {
-      const products = parseLines(text);
       const resp = await fetch(`${API}/scrape`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -204,7 +281,7 @@
       const data = await resp.json();
       currentProducts = data.results;
       renderResults(currentProducts);
-    } catch (e) {
+    } catch(e) {
       alert("Error: " + e.message);
     } finally {
       btn.disabled = false;
@@ -214,104 +291,58 @@
 
   function renderResults(products) {
     document.getElementById("statTotal").textContent = products.length;
-    document.getElementById("statOk").textContent = products.filter(p => p.status === "ok").length;
-    document.getElementById("statReview").textContent = products.filter(p => p.status === "review").length;
-    document.getElementById("statNotFound").textContent = products.filter(p => p.status === "not_found").length;
-
+    document.getElementById("statOk").textContent = products.filter(p => p.status==="ok").length;
+    document.getElementById("statReview").textContent = products.filter(p => p.status==="review").length;
+    document.getElementById("statNotFound").textContent = products.filter(p => p.status==="not_found").length;
     const tbody = document.getElementById("resultsBody");
     tbody.innerHTML = "";
     products.forEach(p => {
       const tr = document.createElement("tr");
-      const bc = p.status === "ok" ? "badge-ok" : p.status === "review" ? "badge-review" : "badge-notfound";
-      const bt = p.status === "ok" ? "OK" : p.status === "review" ? "Review" : "Not found";
+      const bc = p.status==="ok"?"badge-ok":p.status==="review"?"badge-review":"badge-notfound";
+      const bt = p.status==="ok"?"OK":p.status==="review"?"Review":"Not found";
       tr.innerHTML = `
         <td><span class="badge ${bc}">${bt}</span></td>
-        <td>${p.sku || "—"}</td>
-        <td>${p.title || "—"}</td>
-        <td>${p.brand || "—"}</td>
-        <td>${p.price ? "€ " + p.price.toFixed(2) : "—"}</td>
+        <td>${p.sku||"—"}</td>
+        <td>${p.title||"—"}</td>
+        <td>${p.brand||"—"}</td>
+        <td>${p.price?"€ "+p.price.toFixed(2):"—"}</td>
         <td>${p.stock}</td>
-        <td>${p.match ? (p.match * 100).toFixed(0) + "%" : "—"}</td>
+        <td>${p.match?(p.match*100).toFixed(0)+"%":"—"}</td>
       `;
       tbody.appendChild(tr);
     });
     document.getElementById("resultsCard").classList.remove("hidden");
   }
 
+  // ── Export ──────────────────────────────────────────────────────────────
   function toCSV(products) {
-    const headers = [
-      "Type","SKU","Name","Published","Is featured?","Visibility in catalog",
-      "Short description","Description","Regular price","Sale price",
-      "In stock?","Stock","Weight (kg)","Length (cm)","Width (cm)","Height (cm)",
-      "Categories","Images",
-      "Attribute 1 name","Attribute 1 value(s)","Attribute 1 visible","Attribute 1 global",
-      "Attribute 2 name","Attribute 2 value(s)","Attribute 2 visible","Attribute 2 global",
-      "Attribute 3 name","Attribute 3 value(s)","Attribute 3 visible","Attribute 3 global",
-      "Attribute 4 name","Attribute 4 value(s)","Attribute 4 visible","Attribute 4 global",
-      "Meta: _source_url","Meta: _source_site","Meta: _match_score"
-    ];
-    const esc = v => {
-      const s = String(v ?? "");
-      return (s.includes('"') || s.includes(",") || s.includes("\n")) ? '"' + s.replace(/"/g,'""') + '"' : s;
-    };
-    const rows = products.filter(p => p.status !== "not_found").map(p => {
-      const attrs = Object.entries(p.attributes || {});
-      const attrCols = [];
-      for (let i = 0; i < 4; i++) {
-        if (attrs[i]) attrCols.push(attrs[i][0], attrs[i][1], "1", "0");
-        else attrCols.push("", "", "", "");
-      }
-      return [
-        "simple", p.sku, p.title, "1", "0", "visible",
-        p.short_description, p.description,
-        p.regular_price || p.price, (p.price < p.regular_price ? p.price : ""),
-        p.stock > 0 ? "1" : "0", p.stock,
-        p.weight, p.length, p.width, p.height,
-        p.category, (p.images || []).join(", "),
-        ...attrCols,
-        p.source_url, p.source_site, p.match
-      ].map(esc);
+    const headers = ["Type","SKU","Name","Published","Is featured?","Visibility in catalog","Short description","Description","Regular price","Sale price","In stock?","Stock","Weight (kg)","Length (cm)","Width (cm)","Height (cm)","Categories","Images","Attribute 1 name","Attribute 1 value(s)","Attribute 1 visible","Attribute 1 global","Attribute 2 name","Attribute 2 value(s)","Attribute 2 visible","Attribute 2 global","Attribute 3 name","Attribute 3 value(s)","Attribute 3 visible","Attribute 3 global","Attribute 4 name","Attribute 4 value(s)","Attribute 4 visible","Attribute 4 global","Meta: _source_url","Meta: _source_site","Meta: _match_score"];
+    const esc = v => { const s=String(v??""); return (s.includes('"')||s.includes(",")||s.includes("\n"))?'"'+s.replace(/"/g,'""')+'"':s; };
+    const rows = products.filter(p=>p.status!=="not_found").map(p => {
+      const attrs = Object.entries(p.attributes||{});
+      const ac = [];
+      for(let i=0;i<4;i++) { if(attrs[i]) ac.push(attrs[i][0],attrs[i][1],"1","0"); else ac.push("","","",""); }
+      return ["simple",p.sku,p.title,"1","0","visible",p.short_description,p.description,p.regular_price||p.price,(p.price<p.regular_price?p.price:""),p.stock>0?"1":"0",p.stock,p.weight,p.length,p.width,p.height,p.category,(p.images||[]).join(", "),...ac,p.source_url,p.source_site,p.match].map(esc);
     });
-    return [headers.join(","), ...rows.map(r => r.join(","))].join("\r\n");
+    return [headers.join(","),...rows.map(r=>r.join(","))].join("\r\n");
   }
 
   function toXML(products) {
-    const esc = s => String(s ?? "").replace(/[&<>"']/g, c =>
-      ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&apos;"})[c]);
-    let xml = '<?xml version="1.0" encoding="UTF-8"?>\n<products>\n';
-    products.filter(p => p.status !== "not_found").forEach(p => {
-      xml += `  <product>\n    <sku>${esc(p.sku)}</sku>\n    <title>${esc(p.title)}</title>\n`;
-      xml += `    <brand>${esc(p.brand)}</brand>\n    <price>${p.price}</price>\n`;
-      xml += `    <regular_price>${p.regular_price}</regular_price>\n    <stock>${p.stock}</stock>\n`;
-      xml += `    <short_description>${esc(p.short_description)}</short_description>\n`;
-      xml += `    <description><![CDATA[${p.description}]]></description>\n`;
-      xml += `    <category>${esc(p.category)}</category>\n    <images>\n`;
-      (p.images || []).forEach(i => { xml += `      <image>${esc(i)}</image>\n`; });
-      xml += `    </images>\n    <attributes>\n`;
-      Object.entries(p.attributes || {}).forEach(([k,v]) => {
-        xml += `      <attribute name="${esc(k)}">${esc(v)}</attribute>\n`;
-      });
-      xml += `    </attributes>\n    <source_url>${esc(p.source_url)}</source_url>\n`;
-      xml += `    <match_score>${p.match}</match_score>\n  </product>\n`;
+    const esc = s => String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&apos;"})[c]);
+    let xml='<?xml version="1.0" encoding="UTF-8"?>\n<products>\n';
+    products.filter(p=>p.status!=="not_found").forEach(p=>{
+      xml+=`  <product>\n    <sku>${esc(p.sku)}</sku>\n    <title>${esc(p.title)}</title>\n    <brand>${esc(p.brand)}</brand>\n    <price>${p.price}</price>\n    <regular_price>${p.regular_price}</regular_price>\n    <stock>${p.stock}</stock>\n    <short_description>${esc(p.short_description)}</short_description>\n    <description><![CDATA[${p.description}]]></description>\n    <category>${esc(p.category)}</category>\n    <images>\n`;
+      (p.images||[]).forEach(i=>{xml+=`      <image>${esc(i)}</image>\n`;});
+      xml+=`    </images>\n    <attributes>\n`;
+      Object.entries(p.attributes||{}).forEach(([k,v])=>{xml+=`      <attribute name="${esc(k)}">${esc(v)}</attribute>\n`;});
+      xml+=`    </attributes>\n    <source_url>${esc(p.source_url)}</source_url>\n    <match_score>${p.match}</match_score>\n  </product>\n`;
     });
-    return xml + "</products>";
+    return xml+"</products>";
   }
 
-  function download(name, content, mime) {
-    const blob = new Blob([content], { type: mime });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a"); a.href = url; a.download = name; a.click();
-    URL.revokeObjectURL(url);
-  }
-
-  document.getElementById("btnCsv").addEventListener("click", () => {
-    if (!currentProducts.length) return;
-    download(`woocommerce_${new Date().toISOString().slice(0,10)}.csv`, "\uFEFF" + toCSV(currentProducts), "text/csv;charset=utf-8");
-  });
-  document.getElementById("btnXml").addEventListener("click", () => {
-    if (!currentProducts.length) return;
-    download(`products_${new Date().toISOString().slice(0,10)}.xml`, toXML(currentProducts), "application/xml");
-  });
+  function download(name,content,mime){const b=new Blob([content],{type:mime});const u=URL.createObjectURL(b);const a=document.createElement("a");a.href=u;a.download=name;a.click();URL.revokeObjectURL(u);}
+  document.getElementById("btnCsv").addEventListener("click",()=>{if(!currentProducts.length)return;download(`woocommerce_${new Date().toISOString().slice(0,10)}.csv`,"\uFEFF"+toCSV(currentProducts),"text/csv;charset=utf-8");});
+  document.getElementById("btnXml").addEventListener("click",()=>{if(!currentProducts.length)return;download(`products_${new Date().toISOString().slice(0,10)}.xml`,toXML(currentProducts),"application/xml");});
 </script>
 </body>
 </html>
