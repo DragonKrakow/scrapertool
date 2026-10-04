@@ -2,7 +2,6 @@ services:
   - type: web
     name: scrapertool
     runtime: python
-
     plan: free
 
     buildCommand: pip install -r requirements.txt
