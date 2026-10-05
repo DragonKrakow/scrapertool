@@ -1,2011 +1,279 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Product Importer → CSV / XML</title>
-
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Scrapertool — Universal Product Scraper</title>
   <style>
-    :root {
-      --bg: #0b1220;
-      --card: #131c2e;
-      --border: #2a3a55;
-      --text: #eef3fb;
-      --muted: #8ea0b8;
-      --accent: #2f7dff;
-      --accent-hover: #1f6ae8;
-      --success: #2fbf71;
-      --warning: #e3a008;
-      --danger: #ef5b5b;
-    }
-
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
-
-    body {
-      font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
-      background: var(--bg);
-      color: var(--text);
-      min-height: 100vh;
-      padding: 24px;
-      line-height: 1.5;
-    }
-
-    .container {
-      max-width: 900px;
-      margin: 0 auto;
-    }
-
-    h1 {
-      font-size: 1.75rem;
-      margin-bottom: 4px;
-    }
-
-    .subtitle {
-      color: var(--muted);
-      margin-bottom: 28px;
-      font-size: 0.95rem;
-    }
-
-    .card {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 24px;
-      margin-bottom: 20px;
-    }
-
-    label {
-      display: block;
-      font-weight: 600;
-      margin-bottom: 8px;
-      font-size: 0.9rem;
-    }
-
-    .hint {
-      color: var(--muted);
-      font-size: 0.8rem;
-      margin-bottom: 10px;
-    }
-
-    .hint code {
-      background: #0b1220;
-      border: 1px solid var(--border);
-      border-radius: 4px;
-      padding: 1px 5px;
-      font-size: 0.8rem;
-      color: #93c5fd;
-    }
-
-    textarea,
-    input[type="url"],
-    input[type="number"] {
-      width: 100%;
-      background: #0b1220;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 12px 14px;
-      color: var(--text);
-      font-size: 0.95rem;
-      font-family: inherit;
-      resize: vertical;
-    }
-
-    textarea:focus,
-    input:focus {
-      outline: none;
-      border-color: var(--accent);
-      box-shadow: 0 0 0 3px rgba(47,125,255,.25);
-    }
-
-    textarea {
-      min-height: 160px;
-    }
-
-    .row {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 16px;
-    }
-
-    @media (max-width: 600px) {
-      .row {
-        grid-template-columns: 1fr;
-      }
-    }
-
-    .mode-tabs {
-      display: flex;
-      gap: 8px;
-      margin-bottom: 16px;
-    }
-
-    .tab {
-      padding: 7px 16px;
-      border-radius: 6px;
-      border: 1px solid var(--border);
-      background: transparent;
-      color: var(--muted);
-      font-size: 0.85rem;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all .15s;
-    }
-
-    .tab:hover {
-      color: var(--text);
-      background: #1a2740;
-    }
-
-    .tab.active {
-      background: var(--accent);
-      color: white;
-      border-color: var(--accent);
-    }
-
-    .btn {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      padding: 12px 20px;
-      border: none;
-      border-radius: 8px;
-      font-size: 0.95rem;
-      font-weight: 600;
-      cursor: pointer;
-      transition: background .15s, opacity .15s;
-    }
-
-    .btn-primary {
-      background: var(--accent);
-      color: white;
-      width: 100%;
-    }
-
-    .btn-primary:hover {
-      background: var(--accent-hover);
-    }
-
-    .btn-primary:disabled,
-    .btn-secondary:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
-
-    .btn-secondary {
-      background: transparent;
-      border: 1px solid var(--border);
-      color: var(--text);
-    }
-
-    .btn-secondary:hover {
-      background: #1a2740;
-    }
-
-    .btn-sm {
-      padding: 7px 14px;
-      font-size: 0.8rem;
-      width: auto;
-    }
-
-    .actions {
-      display: flex;
-      gap: 12px;
-      flex-wrap: wrap;
-      margin-top: 16px;
-    }
-
-    .stats {
-      display: grid;
-      grid-template-columns: repeat(4,1fr);
-      gap: 12px;
-      margin-bottom: 16px;
-    }
-
-    @media (max-width: 600px) {
-      .stats {
-        grid-template-columns: 1fr 1fr;
-      }
-    }
-
-    .stat {
-      background: #0b1220;
-      border-radius: 8px;
-      padding: 14px;
-      text-align: center;
-    }
-
-    .stat-value {
-      font-size: 1.5rem;
-      font-weight: 700;
-    }
-
-    .stat-label {
-      font-size: 0.75rem;
-      color: var(--muted);
-      margin-top: 2px;
-    }
-
-    .ok {
-      color: var(--success);
-    }
-
-    .review {
-      color: var(--warning);
-    }
-
-    .notfound {
-      color: var(--danger);
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 0.85rem;
-    }
-
-    th,
-    td {
-      padding: 10px 12px;
-      text-align: left;
-      border-bottom: 1px solid var(--border);
-    }
-
-    th {
-      color: var(--muted);
-      font-weight: 600;
-      font-size: 0.75rem;
-      text-transform: uppercase;
-    }
-
-    .badge {
-      display: inline-block;
-      padding: 2px 8px;
-      border-radius: 999px;
-      font-size: 0.7rem;
-      font-weight: 600;
-    }
-
-    .badge-ok {
-      background: rgba(47,191,113,.15);
-      color: var(--success);
-    }
-
-    .badge-review {
-      background: rgba(227,160,8,.15);
-      color: var(--warning);
-    }
-
-    .badge-notfound {
-      background: rgba(239,91,91,.15);
-      color: var(--danger);
-    }
-
-    .hidden {
-      display: none !important;
-    }
-
-    .notice {
-      background: rgba(47,125,255,.1);
-      border: 1px solid rgba(47,125,255,.3);
-      border-radius: 8px;
-      padding: 12px 16px;
-      font-size: 0.85rem;
-      color: #93c5fd;
-      margin-bottom: 20px;
-    }
-
-    .notice.warn {
-      background: rgba(227,160,8,.1);
-      border-color: rgba(227,160,8,.3);
-      color: #fbbf24;
-    }
-
-    .spinner {
-      display: inline-block;
-      width: 18px;
-      height: 18px;
-      border: 3px solid rgba(255,255,255,.3);
-      border-top-color: white;
-      border-radius: 50%;
-      animation: spin .7s linear infinite;
-    }
-
-    @keyframes spin {
-      to {
-        transform: rotate(360deg);
-      }
-    }
-
-    .wake-bar {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      background: rgba(227,160,8,.08);
-      border: 1px solid rgba(227,160,8,.25);
-      border-radius: 8px;
-      padding: 10px 14px;
-      margin-bottom: 16px;
-      font-size: 0.82rem;
-      color: #fbbf24;
-    }
-
-    .dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: var(--warning);
-      flex-shrink: 0;
-    }
-
-    .dot.green {
-      background: var(--success);
-    }
-
-    .error-box {
-      background: rgba(239,91,91,.1);
-      border: 1px solid rgba(239,91,91,.3);
-      color: #fca5a5;
-      border-radius: 8px;
-      padding: 12px 16px;
-      margin-top: 16px;
-      white-space: pre-wrap;
-      word-break: break-word;
-      font-size: 0.85rem;
-    }
-
-    .success-box {
-      background: rgba(47,191,113,.1);
-      border: 1px solid rgba(47,191,113,.3);
-      color: #86efac;
-      border-radius: 8px;
-      padding: 12px 16px;
-      margin-top: 16px;
-      font-size: 0.85rem;
-    }
+    :root{--bg:#f5f7fb;--card:#fff;--text:#172033;--muted:#64748b;--line:#e2e8f0;--accent:#2563eb;--good:#15803d;--warn:#b45309;--bad:#b91c1c}
+    *{box-sizing:border-box} body{margin:0;font-family:Inter,Segoe UI,Arial,sans-serif;background:var(--bg);color:var(--text)}
+    .wrap{max-width:1180px;margin:0 auto;padding:28px 18px 60px}.hero{display:flex;justify-content:space-between;gap:20px;align-items:flex-end;margin-bottom:20px}
+    h1{margin:0 0 8px;font-size:32px}.sub{margin:0;color:var(--muted)} .version{font-size:12px;color:var(--muted)}
+    .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px;box-shadow:0 8px 30px rgba(15,23,42,.05);margin-bottom:16px}
+    .tabs{display:flex;gap:8px;margin-bottom:18px}.tab{border:1px solid var(--line);background:#fff;padding:10px 14px;border-radius:10px;cursor:pointer;font-weight:700}.tab.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+    label{display:block;font-size:13px;font-weight:800;margin:0 0 7px} input,textarea,select{width:100%;border:1px solid #cbd5e1;border-radius:10px;padding:11px 12px;font:inherit;background:#fff} textarea{min-height:150px;resize:vertical}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.full{grid-column:1/-1}.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+    .hint{font-size:12px;color:var(--muted);margin-top:6px}.advanced{margin-top:14px}.advanced summary{cursor:pointer;font-weight:800;font-size:13px}
+    button.primary{border:0;background:var(--accent);color:#fff;padding:12px 18px;border-radius:10px;font-weight:800;cursor:pointer}button.secondary{border:1px solid var(--line);background:#fff;padding:11px 15px;border-radius:10px;font-weight:800;cursor:pointer}
+    button:disabled{opacity:.55;cursor:not-allowed}.status{padding:10px 12px;border-radius:10px;background:#f1f5f9;font-size:13px}.status.good{background:#ecfdf5;color:var(--good)}.status.bad{background:#fef2f2;color:var(--bad)}
+    .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.stat{border:1px solid var(--line);border-radius:12px;padding:12px}.stat b{display:block;font-size:22px}.stat span{font-size:12px;color:var(--muted)}
+    .table-wrap{overflow:auto}.results{width:100%;border-collapse:collapse;font-size:13px}.results th,.results td{border-bottom:1px solid var(--line);padding:11px 9px;text-align:left;vertical-align:top}.results th{font-size:12px;color:var(--muted);background:#f8fafc}
+    .pill{display:inline-block;padding:4px 8px;border-radius:999px;font-size:11px;font-weight:800}.ok{background:#dcfce7;color:#166534}.review{background:#fef3c7;color:#92400e}.error{background:#fee2e2;color:#991b1b}
+    .images{display:flex;gap:5px;flex-wrap:wrap}.images img{width:46px;height:46px;object-fit:cover;border-radius:7px;border:1px solid var(--line)}
+    .hidden{display:none}.footer{color:var(--muted);font-size:12px;text-align:center;margin-top:20px}
+    @media(max-width:760px){.grid{grid-template-columns:1fr}.full{grid-column:auto}.stats{grid-template-columns:1fr 1fr}.hero{display:block}.version{margin-top:8px}}
   </style>
 </head>
-
 <body>
-
-<div class="container">
-
-  <h1>Product Importer → CSV / XML</h1>
-
-  <p class="subtitle">
-    Lightweight tool – enter products and supplier page, generate WooCommerce-ready file
-  </p>
-
-  <!-- Backend status -->
-  <div class="wake-bar" id="wakeBar">
-
-    <span class="dot" id="statusDot"></span>
-
-    <span id="statusText">
-      Checking backend…
-    </span>
-
-    <button
-      class="btn btn-secondary btn-sm"
-      id="btnWake"
-      type="button"
-      style="margin-left:auto;"
-    >
-      Wake up backend
-    </button>
-
+<div class="wrap">
+  <div class="hero">
+    <div>
+      <h1>Scrapertool</h1>
+      <p class="sub">Universal product scraper — search by title or paste product URLs.</p>
+    </div>
+    <div class="version">v2 · Auto-detect platforms</div>
   </div>
 
   <div class="card">
-
-    <!-- Mode tabs -->
-    <div class="mode-tabs">
-
-      <button
-        class="tab active"
-        id="tabSearch"
-        type="button"
-      >
-        🔍 Search by title
-      </button>
-
-      <button
-        class="tab"
-        id="tabUrl"
-        type="button"
-      >
-        🔗 Direct product URLs
-      </button>
-
+    <div class="tabs">
+      <button class="tab active" data-tab="search">Search by title</button>
+      <button class="tab" data-tab="urls">Direct product URLs</button>
     </div>
 
-    <!-- SEARCH MODE -->
-    <div id="modeSearch">
-
-      <label for="products">
-        1. Product Titles / IDs
-      </label>
-
-      <p class="hint">
-        One product per line. You can enter just the title,
-        or ID + title separated by a comma or tab.<br>
-
-        Example:
-        <code>ABC123, Bosch Drill X</code>
-        &nbsp;|&nbsp;
-        <code>DeWalt Screwdriver Y</code>
-        &nbsp;|&nbsp;
-        <code>78910 | Makita Saw Z</code>
-      </p>
-
-      <textarea
-        id="products"
-        placeholder="ABC123, Bosch Drill X&#10;DeWalt Screwdriver Y&#10;Makita DHP485Z"
-      ></textarea>
-
-      <div
-        class="row"
-        style="margin-top:16px;"
-      >
-
-        <div>
-
-          <label for="site">
-            2. Supplier website URL
-          </label>
-
-          <p class="hint">
-            E.g.:
-            <code>https://www.supplier.com</code>
-          </p>
-
-          <input
-            type="url"
-            id="site"
-            placeholder="https://www.supplier.com"
-          />
-
+    <div id="searchPanel">
+      <div class="grid">
+        <div class="full">
+          <label for="titles">Product Titles / IDs</label>
+          <textarea id="titles" placeholder="Penna Acrilica Porpora&#10;USB Scalp Massager&#10;100001315&#10;&#10;One product per line."></textarea>
+          <div class="hint">The tool searches the supplier automatically and picks the best product match.</div>
         </div>
-
         <div>
-
-          <label for="defaultQty">
-            Default quantity (stock)
-          </label>
-
-          <p class="hint">
-            Used when no quantity is in the line
-          </p>
-
-          <input
-            type="number"
-            id="defaultQty"
-            value="10"
-            min="1"
-          />
-
+          <label for="supplier">Supplier website</label>
+          <input id="supplier" placeholder="https://example-shop.com/">
         </div>
-
+        <div>
+          <label for="qty">Quantity</label>
+          <input id="qty" type="number" min="1" value="10">
+        </div>
       </div>
-
-      <div
-        class="notice warn"
-        style="margin-top:14px;margin-bottom:0;"
-      >
-        ⚠️ <strong>Search mode</strong> may not work on sites
-        with Cloudflare or bot protection.
-        If it gets stuck, switch to
-        <strong>Direct URL mode</strong>
-        and paste the exact product page links.
-      </div>
-
     </div>
 
-    <!-- URL MODE -->
-    <div
-      id="modeUrl"
-      class="hidden"
-    >
-
-      <label for="urlProducts">
-        Product URLs — one per line
-      </label>
-
-      <p class="hint">
-
-        Paste the exact product page URL.
-        Optionally add SKU or quantity:<br>
-
-        <code>
-          https://shop.com/product/bosch-drill
-        </code>
-
-        <br>
-
-        <code>
-          ABC123 | https://shop.com/product/bosch-drill | qty:5
-        </code>
-
-      </p>
-
-      <textarea
-        id="urlProducts"
-        placeholder="https://www.supplier.com/product/bosch-drill-x&#10;https://www.supplier.com/product/dewalt-y"
-      ></textarea>
-
-      <div
-        class="row"
-        style="margin-top:16px;"
-      >
-
-        <div>
-
-          <label for="defaultQty2">
-            Default quantity (stock)
-          </label>
-
-          <p class="hint">
-            Used when no qty: is in the line
-          </p>
-
-          <input
-            type="number"
-            id="defaultQty2"
-            value="10"
-            min="1"
-          />
-
+    <div id="urlPanel" class="hidden">
+      <div class="grid">
+        <div class="full">
+          <label for="urls">Product URLs</label>
+          <textarea id="urls" placeholder="https://example-shop.com/product/example&#10;https://another-shop.com/products/item"></textarea>
+          <div class="hint">One URL per line. No supplier field is needed here.</div>
         </div>
-
+        <div>
+          <label for="urlQty">Default quantity</label>
+          <input id="urlQty" type="number" min="1" value="10">
+        </div>
       </div>
-
     </div>
 
-    <button
-      class="btn btn-primary"
-      id="btnProcess"
-      type="button"
-      style="margin-top:20px;"
-    >
-      Generate products
-    </button>
+    <details class="advanced">
+      <summary>Advanced: platform</summary>
+      <div style="margin-top:12px;max-width:420px">
+        <label for="platform">Platform</label>
+        <select id="platform">
+          <option value="auto">Auto-detect</option>
+          <option value="prestashop">PrestaShop</option>
+          <option value="woocommerce">WooCommerce</option>
+          <option value="shopify">Shopify</option>
+          <option value="magento">Magento</option>
+          <option value="opencart">OpenCart</option>
+          <option value="shopware">Shopware</option>
+          <option value="bigcommerce">BigCommerce</option>
+          <option value="generic">Generic website</option>
+        </select>
+        <div class="hint">Leave this on Auto-detect unless a supplier needs a manual platform hint.</div>
+      </div>
+    </details>
 
-    <div id="messageArea"></div>
-
+    <div class="row" style="margin-top:16px">
+      <button class="primary" id="generate">Generate products</button>
+      <button class="secondary" id="health">Check backend</button>
+      <span id="backendStatus" class="status">Backend status: unknown</span>
+    </div>
   </div>
 
-
-  <!-- RESULTS -->
-  <div
-    class="card hidden"
-    id="resultsCard"
-  >
-
-    <h2
-      style="margin-bottom:16px;font-size:1.15rem;"
-    >
-      Results
-    </h2>
-
+  <div class="card hidden" id="resultsCard">
     <div class="stats">
-
-      <div class="stat">
-        <div
-          class="stat-value"
-          id="statTotal"
-        >
-          0
-        </div>
-        <div class="stat-label">
-          Total
-        </div>
-      </div>
-
-      <div class="stat">
-        <div
-          class="stat-value ok"
-          id="statOk"
-        >
-          0
-        </div>
-        <div class="stat-label">
-          OK
-        </div>
-      </div>
-
-      <div class="stat">
-        <div
-          class="stat-value review"
-          id="statReview"
-        >
-          0
-        </div>
-        <div class="stat-label">
-          To review
-        </div>
-      </div>
-
-      <div class="stat">
-        <div
-          class="stat-value notfound"
-          id="statNotFound"
-        >
-          0
-        </div>
-        <div class="stat-label">
-          Not found
-        </div>
-      </div>
-
+      <div class="stat"><b id="statTotal">0</b><span>Total</span></div>
+      <div class="stat"><b id="statOk">0</b><span>Successful</span></div>
+      <div class="stat"><b id="statReview">0</b><span>Review</span></div>
+      <div class="stat"><b id="statErrors">0</b><span>Errors</span></div>
     </div>
-
-    <div
-      style="overflow-x:auto;max-height:360px;"
-    >
-
-      <table>
-
-        <thead>
-
-          <tr>
-            <th>Status</th>
-            <th>SKU</th>
-            <th>Title</th>
-            <th>Brand</th>
-            <th>Price</th>
-            <th>Stock</th>
-            <th>Match</th>
-          </tr>
-
-        </thead>
-
-        <tbody id="resultsBody"></tbody>
-
-      </table>
-
-    </div>
-
-    <div class="actions">
-
-      <button
-        class="btn btn-primary"
-        id="btnCsv"
-        type="button"
-        style="flex:1;"
-      >
-        Download WooCommerce CSV
-      </button>
-
-      <button
-        class="btn btn-secondary"
-        id="btnXml"
-        type="button"
-        style="flex:1;"
-      >
-        Download XML
-      </button>
-
-    </div>
-
   </div>
 
+  <div class="card hidden" id="tableCard">
+    <div class="row" style="justify-content:space-between;margin-bottom:12px">
+      <strong>Scraped products</strong>
+      <div class="row">
+        <button class="secondary" id="exportCsv">Export CSV</button>
+        <button class="secondary" id="exportJson">Export JSON</button>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table class="results">
+        <thead><tr>
+          <th>Status</th><th>Product</th><th>SKU / EAN</th><th>Price</th><th>Platform</th><th>Match</th><th>Images</th><th>Source</th>
+        </tr></thead>
+        <tbody id="resultBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="footer">Scrapertool uses bounded HTTP/HTML discovery and public product data. No paid AI/API is required.</div>
 </div>
 
-
 <script>
-"use strict";
+const API_BASE = "https://scrapertool.onrender.com";
+let activeTab = "search";
+let lastResults = [];
 
-const API = "https://scrapertool.onrender.com";
+const $ = id => document.getElementById(id);
 
-let currentMode = "search";
-let currentProducts = [];
+document.querySelectorAll(".tab").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".tab").forEach(x => x.classList.remove("active"));
+    btn.classList.add("active");
+    activeTab = btn.dataset.tab;
+    $("searchPanel").classList.toggle("hidden", activeTab !== "search");
+    $("urlPanel").classList.toggle("hidden", activeTab !== "urls");
+  });
+});
 
-
-/* ─────────────────────────────────────────────
-   Helper
-───────────────────────────────────────────── */
-
-const $ = (id) => document.getElementById(id);
-
-
-function escapeHtml(value) {
-
-  return String(value ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
-
-}
-
-
-function showMessage(message, type = "error") {
-
-  const area = $("messageArea");
-
-  if (!message) {
-    area.innerHTML = "";
-    return;
+async function checkHealth() {
+  const el = $("backendStatus");
+  el.textContent = "Backend status: checking…";
+  el.className = "status";
+  try {
+    const r = await fetch(API_BASE + "/health", {cache:"no-store"});
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    const data = await r.json();
+    el.textContent = `Backend: online · ${data.version || ""}`;
+    el.className = "status good";
+  } catch (e) {
+    el.textContent = "Backend status: unavailable";
+    el.className = "status bad";
   }
-
-  const safeMessage = escapeHtml(message);
-
-  area.innerHTML =
-    `<div class="${type === "success"
-      ? "success-box"
-      : "error-box"}">${safeMessage}</div>`;
-
 }
 
+function parseLines(text) {
+  return text.split(/\r?\n/).map(x => x.trim()).filter(Boolean);
+}
 
-/* ─────────────────────────────────────────────
-   Backend health
-───────────────────────────────────────────── */
+function escapeHtml(s) {
+  return String(s ?? "").replace(/[&<>"']/g, c => ({
+    "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+  }[c]));
+}
 
-async function checkBackend() {
+function money(r) {
+  if (r.price == null) return "—";
+  return `${r.price} ${escapeHtml(r.currency || "")}`.trim();
+}
 
-  const controller = new AbortController();
+function renderResults(data) {
+  lastResults = data.results || [];
+  $("resultsCard").classList.remove("hidden");
+  $("tableCard").classList.remove("hidden");
 
-  const timeoutId =
-    setTimeout(() => controller.abort(), 8000);
+  const stats = data.stats || {};
+  $("statTotal").textContent = stats.total ?? lastResults.length;
+  $("statOk").textContent = stats.ok ?? lastResults.filter(x => x.status === "ok").length;
+  $("statReview").textContent = stats.review ?? lastResults.filter(x => x.status === "review").length;
+  $("statErrors").textContent = stats.errors ?? lastResults.filter(x => x.status === "error").length;
+
+  $("resultBody").innerHTML = lastResults.map(r => {
+    const status = r.status || "error";
+    const cls = status === "ok" ? "ok" : status === "review" ? "review" : "error";
+    const imgs = (r.images || []).slice(0,5).map(src =>
+      `<img src="${escapeHtml(src)}" loading="lazy" onerror="this.style.display='none'">`
+    ).join("");
+    const sku = [r.sku, r.ean].filter(Boolean).join(" / ") || "—";
+    const source = r.source_url
+      ? `<a href="${escapeHtml(r.source_url)}" target="_blank" rel="noopener">Open</a>`
+      : "—";
+    return `<tr>
+      <td><span class="pill ${cls}">${escapeHtml(status)}</span></td>
+      <td><b>${escapeHtml(r.title || r.requested_title || "—")}</b><br><span style="color:#64748b">${escapeHtml(r.brand || "")}</span></td>
+      <td>${escapeHtml(sku)}</td>
+      <td>${money(r)}</td>
+      <td>${escapeHtml(r.platform_name || r.platform || "—")}</td>
+      <td>${r.match_percent != null ? r.match_percent + "%" : "—"}<br><small>${escapeHtml(r.match_reason || "")}</small></td>
+      <td><div class="images">${imgs || "—"}</div></td>
+      <td>${source}</td>
+    </tr>`;
+  }).join("");
+}
+
+async function generate() {
+  const btn = $("generate");
+  btn.disabled = true;
+  btn.textContent = "Scraping…";
 
   try {
-
-    const response = await fetch(
-      `${API}/health`,
-      {
-        method: "GET",
-        signal: controller.signal,
-        cache: "no-store"
-      }
-    );
-
-    clearTimeout(timeoutId);
-
-    if (response.ok) {
-
-      $("statusDot").className = "dot green";
-
-      $("statusText").textContent =
-        "Backend is awake and ready";
-
-      $("btnWake").style.display = "none";
-
-      return true;
-
-    }
-
-  } catch (error) {
-
-    clearTimeout(timeoutId);
-
-  }
-
-  $("statusDot").className = "dot";
-
-  $("statusText").textContent =
-    "Backend is sleeping — click Wake up (takes ~30 sec)";
-
-  $("btnWake").style.display = "inline-flex";
-
-  return false;
-
-}
-
-
-$("btnWake").addEventListener(
-  "click",
-  async () => {
-
-    const button = $("btnWake");
-
-    button.disabled = true;
-
-    button.textContent = "Waking up…";
-
-    $("statusText").textContent =
-      "Waking up backend, please wait…";
-
-    for (let i = 0; i < 12; i++) {
-
-      const ready = await checkBackend();
-
-      if (ready) {
-        break;
-      }
-
-      await new Promise(
-        resolve => setTimeout(resolve, 5000)
-      );
-
-    }
-
-    if (
-      $("statusDot").classList.contains("green")
-    ) {
-
-      button.style.display = "none";
-
-    } else {
-
-      button.disabled = false;
-
-      button.textContent =
-        "Wake up backend";
-
-    }
-
-  }
-);
-
-
-/* ─────────────────────────────────────────────
-   Mode switching
-───────────────────────────────────────────── */
-
-function setMode(mode) {
-
-  currentMode = mode;
-
-  $("modeSearch")
-    .classList
-    .toggle("hidden", mode !== "search");
-
-  $("modeUrl")
-    .classList
-    .toggle("hidden", mode !== "url");
-
-  $("tabSearch")
-    .classList
-    .toggle("active", mode === "search");
-
-  $("tabUrl")
-    .classList
-    .toggle("active", mode === "url");
-
-  showMessage("");
-
-}
-
-
-$("tabSearch").addEventListener(
-  "click",
-  () => setMode("search")
-);
-
-
-$("tabUrl").addEventListener(
-  "click",
-  () => setMode("url")
-);
-
-
-/* ─────────────────────────────────────────────
-   Search-mode parser
-───────────────────────────────────────────── */
-
-function parseSearchLines(text) {
-
-  return text
-    .trim()
-    .split(/\r?\n/)
-    .filter(line => line.trim())
-    .map(line => {
-
-      let id = "";
-      let title = line.trim();
-      let qty = null;
-
-      const parts = line
-        .split(/[,|\t]/)
-        .map(part => part.trim())
-        .filter(Boolean);
-
-
-      if (
-        parts.length >= 2 &&
-        (
-          /^\d/.test(parts[0]) ||
-          parts[0].length <= 12
-        )
-      ) {
-
-        id = parts[0];
-
-        title =
-          parts.slice(1).join(" ");
-
-      } else if (parts.length >= 2) {
-
-        title =
-          parts.join(" ");
-
-      }
-
-
-      const quantityMatch =
-        title.match(
-          /\s+(?:x|qty|szt)?\s*(\d+)\s*(?:pcs|szt)?$/i
-        );
-
-
-      if (quantityMatch) {
-
-        qty =
-          parseInt(
-            quantityMatch[1],
-            10
-          );
-
-        title =
-          title
-            .replace(quantityMatch[0], "")
-            .trim();
-
-      }
-
-
-      return {
-        id,
-        title,
-        qty,
-        url: ""
-      };
-
-    });
-
-}
-
-
-/* ─────────────────────────────────────────────
-   URL parser
-───────────────────────────────────────────── */
-
-function parseUrlLines(text) {
-
-  return text
-    .trim()
-    .split(/\r?\n/)
-    .filter(line => line.trim())
-    .map(line => {
-
-      const parts =
-        line
-          .split(/\s*\|\s*/)
-          .map(part => part.trim())
-          .filter(Boolean);
-
-
-      let id = "";
-      let url = "";
-      let qty = null;
-      let title = "";
-
-
-      for (const part of parts) {
-
-        if (
-          /^https?:\/\//i.test(part)
-        ) {
-
-          url = part;
-
-        } else if (
-          /^qty:\s*\d+/i.test(part)
-        ) {
-
-          qty =
-            parseInt(
-              part.replace(/[^\d]/g, ""),
-              10
-            );
-
-        } else if (!id) {
-
-          id = part;
-
-        }
-
-      }
-
-
-      if (
-        !url &&
-        parts.length === 1 &&
-        /^https?:\/\//i.test(parts[0])
-      ) {
-
-        url = parts[0];
-
-      }
-
-
-      if (url && !title) {
-
-        try {
-
-          const parsedUrl =
-            new URL(url);
-
-          const pathParts =
-            parsedUrl.pathname
-              .split("/")
-              .filter(Boolean);
-
-          const slug =
-            pathParts[pathParts.length - 1] ||
-            parsedUrl.hostname;
-
-          title =
-            slug
-              .replace(/\.[^.]+$/, "")
-              .replace(/[-_]+/g, " ")
-              .trim();
-
-        } catch {
-
-          title = url;
-
-        }
-
-      }
-
-
-      return {
-        id,
-        title,
-        qty,
-        url
-      };
-
-    });
-
-}
-
-
-/* ─────────────────────────────────────────────
-   Generate / scrape
-───────────────────────────────────────────── */
-
-$("btnProcess").addEventListener(
-  "click",
-  async () => {
-
-    showMessage("");
-
-    let products;
+    const platform = $("platform").value;
+    const defaultQty = Number(activeTab === "search" ? $("qty").value : $("urlQty").value) || 1;
+    let products = [];
     let site = "";
-    let defaultQty;
 
-
-    /* Search mode */
-
-    if (currentMode === "search") {
-
-      const text =
-        $("products").value;
-
-      site =
-        $("site").value.trim();
-
-      defaultQty =
-        parseInt(
-          $("defaultQty").value,
-          10
-        ) || 10;
-
-
-      if (!text.trim()) {
-
-        showMessage(
-          "Enter at least one product."
-        );
-
-        $("products").focus();
-
-        return;
-
-      }
-
-
-      if (!site) {
-
-        showMessage(
-          "Enter the supplier website URL."
-        );
-
-        $("site").focus();
-
-        return;
-
-      }
-
-
-      try {
-
-        new URL(site);
-
-      } catch {
-
-        showMessage(
-          "Please enter a valid supplier website URL, for example https://www.supplier.com"
-        );
-
-        $("site").focus();
-
-        return;
-
-      }
-
-
-      products =
-        parseSearchLines(text);
-
+    if (activeTab === "search") {
+      site = $("supplier").value.trim();
+      const lines = parseLines($("titles").value);
+      if (!site) throw new Error("Enter the supplier website.");
+      if (!lines.length) throw new Error("Enter at least one product title.");
+      products = lines.map(line => ({id:"", title:line, qty:defaultQty, url:""}));
+    } else {
+      const lines = parseLines($("urls").value);
+      if (!lines.length) throw new Error("Enter at least one product URL.");
+      products = lines.map(url => ({id:"", title:"", qty:defaultQty, url}));
     }
 
-
-    /* Direct URL mode */
-
-    else {
-
-      const text =
-        $("urlProducts").value;
-
-      defaultQty =
-        parseInt(
-          $("defaultQty2").value,
-          10
-        ) || 10;
-
-
-      if (!text.trim()) {
-
-        showMessage(
-          "Enter at least one product URL."
-        );
-
-        $("urlProducts").focus();
-
-        return;
-
-      }
-
-
-      products =
-        parseUrlLines(text);
-
-
-      if (
-        !products.some(
-          product => product.url
-        )
-      ) {
-
-        /*
-          IMPORTANT:
-          The old version had an actual line break
-          inside the JavaScript string here.
-
-          That caused the browser to reject the
-          ENTIRE script, making every button dead.
-
-          This version uses \n correctly.
-        */
-
-        showMessage(
-          "No valid URLs found.\nMake sure each line starts with https://"
-        );
-
-        $("urlProducts").focus();
-
-        return;
-
-      }
-
-    }
-
-
-    const button =
-      $("btnProcess");
-
-
-    button.disabled = true;
-
-    button.innerHTML =
-      '<span class="spinner"></span> Scraping…';
-
-
-    $("resultsCard")
-      .classList
-      .add("hidden");
-
-
-    try {
-
-      const response =
-        await fetch(
-          `${API}/scrape`,
-          {
-            method: "POST",
-
-            headers: {
-              "Content-Type":
-                "application/json"
-            },
-
-            body: JSON.stringify({
-              products,
-              site,
-              default_qty: defaultQty
-            })
-          }
-        );
-
-
-      let responseData = {};
-
-
-      try {
-
-        responseData =
-          await response.json();
-
-      } catch {
-
-        responseData = {};
-
-      }
-
-
-      if (!response.ok) {
-
-        let errorMessage =
-          `Server error ${response.status}`;
-
-
-        if (
-          typeof responseData.detail ===
-          "string"
-        ) {
-
-          errorMessage =
-            responseData.detail;
-
-        } else if (
-          Array.isArray(
-            responseData.detail
-          )
-        ) {
-
-          errorMessage =
-            responseData.detail
-              .map(error =>
-                `${(error.loc || []).join(".")}: ${error.msg}`
-              )
-              .join(" | ");
-
-        } else if (
-          responseData.detail
-        ) {
-
-          errorMessage =
-            JSON.stringify(
-              responseData.detail
-            );
-
-        }
-
-
-        throw new Error(
-          errorMessage
-        );
-
-      }
-
-
-      if (
-        !Array.isArray(
-          responseData.results
-        )
-      ) {
-
-        throw new Error(
-          "The backend responded, but it did not return a valid results array."
-        );
-
-      }
-
-
-      currentProducts =
-        responseData.results;
-
-
-      renderResults(
-        currentProducts
-      );
-
-
-      showMessage(
-        `Completed. ${currentProducts.length} product(s) processed.`,
-        "success"
-      );
-
-
-    } catch (error) {
-
-      console.error(
-        "Scrape error:",
-        error
-      );
-
-
-      showMessage(
-        `Error: ${
-          error && error.message
-            ? error.message
-            : error
-        }`
-      );
-
-
-    } finally {
-
-      button.disabled = false;
-
-      button.innerHTML =
-        "Generate products";
-
-    }
-
-  }
-);
-
-
-/* ─────────────────────────────────────────────
-   Results
-───────────────────────────────────────────── */
-
-function renderResults(products) {
-
-  $("statTotal").textContent =
-    products.length;
-
-
-  $("statOk").textContent =
-    products.filter(
-      product =>
-        product.status === "ok"
-    ).length;
-
-
-  $("statReview").textContent =
-    products.filter(
-      product =>
-        product.status === "review"
-    ).length;
-
-
-  $("statNotFound").textContent =
-    products.filter(
-      product =>
-        product.status === "not_found"
-    ).length;
-
-
-  const tbody =
-    $("resultsBody");
-
-
-  tbody.innerHTML = "";
-
-
-  products.forEach(product => {
-
-    const row =
-      document.createElement("tr");
-
-
-    const statusClass =
-      product.status === "ok"
-        ? "badge-ok"
-        : product.status === "review"
-          ? "badge-review"
-          : "badge-notfound";
-
-
-    const statusText =
-      product.status === "ok"
-        ? "OK"
-        : product.status === "review"
-          ? "Review"
-          : "Not found";
-
-
-    const matchValue =
-      typeof product.match === "number"
-        ? `${(
-            product.match * 100
-          ).toFixed(0)}%`
-        : "—";
-
-
-    const priceValue =
-      typeof product.price ===
-      "number"
-
-        ? `${
-            product.currency || "€"
-          } ${
-            product.price.toFixed(2)
-          }`
-
-        : product.price
-
-          ? `${
-              product.currency || "€"
-            } ${
-              product.price
-            }`
-
-          : "—";
-
-
-    row.innerHTML = `
-
-      <td>
-        <span
-          class="badge ${statusClass}"
-        >
-          ${escapeHtml(statusText)}
-        </span>
-      </td>
-
-      <td>
-        ${escapeHtml(
-          product.sku || "—"
-        )}
-      </td>
-
-      <td>
-        ${escapeHtml(
-          product.title || "—"
-        )}
-      </td>
-
-      <td>
-        ${escapeHtml(
-          product.brand || "—"
-        )}
-      </td>
-
-      <td>
-        ${escapeHtml(
-          priceValue
-        )}
-      </td>
-
-      <td>
-        ${escapeHtml(
-          product.stock ?? "—"
-        )}
-      </td>
-
-      <td>
-        ${escapeHtml(
-          matchValue
-        )}
-      </td>
-
-    `;
-
-
-    tbody.appendChild(row);
-
-  });
-
-
-  $("resultsCard")
-    .classList
-    .remove("hidden");
-
-}
-
-
-/* ─────────────────────────────────────────────
-   CSV
-───────────────────────────────────────────── */
-
-function toCSV(products) {
-
-  const headers = [
-
-    "Type",
-    "SKU",
-    "Name",
-    "Published",
-    "Is featured?",
-    "Visibility in catalog",
-    "Short description",
-    "Description",
-    "Regular price",
-    "Sale price",
-    "In stock?",
-    "Stock",
-    "Weight (kg)",
-    "Length (cm)",
-    "Width (cm)",
-    "Height (cm)",
-    "Categories",
-    "Images",
-
-    "Attribute 1 name",
-    "Attribute 1 value(s)",
-    "Attribute 1 visible",
-    "Attribute 1 global",
-
-    "Attribute 2 name",
-    "Attribute 2 value(s)",
-    "Attribute 2 visible",
-    "Attribute 2 global",
-
-    "Attribute 3 name",
-    "Attribute 3 value(s)",
-    "Attribute 3 visible",
-    "Attribute 3 global",
-
-    "Attribute 4 name",
-    "Attribute 4 value(s)",
-    "Attribute 4 visible",
-    "Attribute 4 global",
-
-    "Meta: _source_url",
-    "Meta: _source_site",
-    "Meta: _match_score"
-
-  ];
-
-
-  const escapeCsv =
-    value => {
-
-      const stringValue =
-        String(value ?? "");
-
-
-      if (
-        stringValue.includes('"') ||
-        stringValue.includes(",") ||
-        stringValue.includes("\n")
-      ) {
-
-        return `"${stringValue.replace(
-          /"/g,
-          '""'
-        )}"`;
-
-      }
-
-
-      return stringValue;
-
-    };
-
-
-  const rows =
-    products
-      .filter(
-        product =>
-          product.status !==
-          "not_found"
-      )
-      .map(product => {
-
-        const attributes =
-          Object.entries(
-            product.attributes || {}
-          );
-
-
-        const attributeColumns = [];
-
-
-        for (
-          let i = 0;
-          i < 4;
-          i++
-        ) {
-
-          if (attributes[i]) {
-
-            attributeColumns.push(
-              attributes[i][0],
-              attributes[i][1],
-              "1",
-              "0"
-            );
-
-          } else {
-
-            attributeColumns.push(
-              "",
-              "",
-              "",
-              ""
-            );
-
-          }
-
-        }
-
-
-        const regularPrice =
-          product.regular_price ??
-          product.price ??
-          "";
-
-
-        const salePrice =
-          typeof product.price ===
-            "number" &&
-
-          typeof product.regular_price ===
-            "number" &&
-
-          product.price <
-            product.regular_price
-
-            ? product.price
-
-            : "";
-
-
-        return [
-
-          "simple",
-
-          product.sku,
-
-          product.title,
-
-          "1",
-
-          "0",
-
-          "visible",
-
-          product.short_description,
-
-          product.description,
-
-          regularPrice,
-
-          salePrice,
-
-          product.stock > 0
-            ? "1"
-            : "0",
-
-          product.stock,
-
-          product.weight,
-
-          product.length,
-
-          product.width,
-
-          product.height,
-
-          product.category,
-
-          (
-            product.images || []
-          ).join(", "),
-
-          ...attributeColumns,
-
-          product.source_url,
-
-          product.source_site,
-
-          product.match
-
-        ].map(escapeCsv);
-
-      });
-
-
-  return [
-
-    headers.join(","),
-
-    ...rows.map(
-      row => row.join(",")
-    )
-
-  ].join("\r\n");
-
-}
-
-
-/* ─────────────────────────────────────────────
-   XML
-───────────────────────────────────────────── */
-
-function toXML(products) {
-
-  const escapeXml =
-    value =>
-      String(value ?? "")
-        .replace(
-          /[&<>"']/g,
-          character => ({
-            "&": "&amp;",
-            "<": "&lt;",
-            ">": "&gt;",
-            '"': "&quot;",
-            "'": "&apos;"
-          })[character]
-        );
-
-
-  let xml =
-    '<?xml version="1.0" encoding="UTF-8"?>\n' +
-    "<products>\n";
-
-
-  products
-    .filter(
-      product =>
-        product.status !==
-        "not_found"
-    )
-    .forEach(product => {
-
-      xml +=
-        `  <product>\n` +
-
-        `    <sku>${escapeXml(
-          product.sku
-        )}</sku>\n` +
-
-        `    <title>${escapeXml(
-          product.title
-        )}</title>\n` +
-
-        `    <brand>${escapeXml(
-          product.brand
-        )}</brand>\n` +
-
-        `    <price>${escapeXml(
-          product.price
-        )}</price>\n` +
-
-        `    <regular_price>${escapeXml(
-          product.regular_price
-        )}</regular_price>\n` +
-
-        `    <stock>${escapeXml(
-          product.stock
-        )}</stock>\n` +
-
-        `    <short_description>${escapeXml(
-          product.short_description
-        )}</short_description>\n` +
-
-        `    <description><![CDATA[${
-          String(
-            product.description || ""
-          ).replace(
-            /]]>/g,
-            "]]]]><![CDATA[>"
-          )
-        }]]></description>\n` +
-
-        `    <category>${escapeXml(
-          product.category
-        )}</category>\n` +
-
-        `    <images>\n`;
-
-
-      (
-        product.images || []
-      ).forEach(image => {
-
-        xml +=
-          `      <image>${escapeXml(
-            image
-          )}</image>\n`;
-
-      });
-
-
-      xml +=
-        `    </images>\n` +
-
-        `    <attributes>\n`;
-
-
-      Object.entries(
-        product.attributes || {}
-      ).forEach(
-        ([key, value]) => {
-
-          xml +=
-            `      <attribute name="${escapeXml(
-              key
-            )}">${escapeXml(
-              value
-            )}</attribute>\n`;
-
-        }
-      );
-
-
-      xml +=
-        `    </attributes>\n` +
-
-        `    <source_url>${escapeXml(
-          product.source_url
-        )}</source_url>\n` +
-
-        `    <match_score>${escapeXml(
-          product.match
-        )}</match_score>\n` +
-
-        `  </product>\n`;
-
+    const response = await fetch(API_BASE + "/scrape", {
+      method: "POST",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({products, site, default_qty:defaultQty, platform})
     });
 
-
-  return (
-    xml +
-    "</products>"
-  );
-
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.detail || "Scrape failed.");
+    renderResults(data);
+  } catch (e) {
+    alert(e.message || "Something went wrong.");
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Generate products";
+  }
 }
 
-
-/* ─────────────────────────────────────────────
-   File download
-───────────────────────────────────────────── */
-
-function downloadFile(
-  name,
-  content,
-  mime
-) {
-
-  const blob =
-    new Blob(
-      [content],
-      { type: mime }
-    );
-
-
-  const url =
-    URL.createObjectURL(
-      blob
-    );
-
-
-  const anchor =
-    document.createElement(
-      "a"
-    );
-
-
-  anchor.href = url;
-
-  anchor.download = name;
-
-  document.body.appendChild(
-    anchor
-  );
-
-  anchor.click();
-
-  anchor.remove();
-
-
-  setTimeout(
-    () =>
-      URL.revokeObjectURL(
-        url
-      ),
-    1000
-  );
-
+function download(name, content, type) {
+  const blob = new Blob([content], {type});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = name; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
+function exportJson() {
+  download("scrapertool-results.json", JSON.stringify(lastResults, null, 2), "application/json");
+}
 
-$("btnCsv").addEventListener(
-  "click",
-  () => {
+function exportCsv() {
+  const fields = ["title","brand","sku","ean","price","regular_price","currency","availability","category","quantity","platform_name","match_percent","source_url"];
+  const esc = v => `"${String(v ?? "").replace(/"/g,'""')}"`;
+  const csv = [fields.join(","), ...lastResults.map(r => fields.map(f => esc(r[f])).join(","))].join("\n");
+  download("scrapertool-results.csv", csv, "text/csv;charset=utf-8");
+}
 
-    if (
-      !currentProducts.length
-    ) {
-
-      showMessage(
-        "There are no products to export."
-      );
-
-      return;
-
-    }
-
-
-    downloadFile(
-
-      `woocommerce_${
-        new Date()
-          .toISOString()
-          .slice(0,10)
-      }.csv`,
-
-      "\uFEFF" +
-        toCSV(
-          currentProducts
-        ),
-
-      "text/csv;charset=utf-8"
-
-    );
-
-  }
-);
-
-
-$("btnXml").addEventListener(
-  "click",
-  () => {
-
-    if (
-      !currentProducts.length
-    ) {
-
-      showMessage(
-        "There are no products to export."
-      );
-
-      return;
-
-    }
-
-
-    downloadFile(
-
-      `products_${
-        new Date()
-          .toISOString()
-          .slice(0,10)
-      }.xml`,
-
-      toXML(
-        currentProducts
-      ),
-
-      "application/xml;charset=utf-8"
-
-    );
-
-  }
-);
-
-
-/* ─────────────────────────────────────────────
-   Start
-───────────────────────────────────────────── */
-
-checkBackend();
-
+$("generate").addEventListener("click", generate);
+$("health").addEventListener("click", checkHealth);
+$("exportJson").addEventListener("click", exportJson);
+$("exportCsv").addEventListener("click", exportCsv);
+checkHealth();
 </script>
-
 </body>
 </html>
