@@ -23,7 +23,9 @@ MAX_CANDIDATES = 25
 MAX_IMAGES = 20
 MAX_HTML_BYTES = 4_000_000
 REQUEST_TIMEOUT = 18.0
-CRAWL_TIMEOUT = 10.0
+CRAWL_TIMEOUT = 5.0
+DISCOVERY_DEADLINE = 30.0
+MAX_SEARCH_REQUESTS = 24
 
 USER_AGENT = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -720,83 +722,142 @@ def json_api_candidates(data: Any, base: str, requested: str, identifier: str) -
 async def discover_candidates(
     client: httpx.AsyncClient, site: str, requested: str, identifier: str, platform: str
 ) -> tuple[list[tuple[str, float]], list[str], list[str]]:
-    warnings, attempted = [], []
+    """Find product candidates quickly without getting stuck on slow search endpoints."""
+    warnings: list[str] = []
+    attempted: list[str] = []
     all_candidates: dict[str, float] = {}
-    platforms = ([platform] if platform != "auto" else
-                 ["prestashop","woocommerce","shopify","magento","opencart","shopware","bigcommerce","generic"])
-    queries = [requested] + ([identifier] if identifier and identifier != requested else [])
+
+    platforms = (
+        [platform]
+        if platform != "auto"
+        else ["prestashop", "woocommerce", "shopify", "magento", "opencart", "shopware", "bigcommerce", "generic"]
+    )
+
+    queries = [requested] if requested else []
+    if identifier and identifier != requested:
+        queries.append(identifier)
     words = [x for x in clean_text(requested).split() if len(x) >= 3]
     if len(words) > 1:
-        queries.extend(words[:3])
+        queries.extend(words[:2])
 
-    search_urls = []
+    # Keep the request count deliberately small. The old version could make
+    # 45 sequential requests, which made a single scrape appear to hang.
+    search_urls: list[str] = []
     for q in queries:
         for plat in platforms:
-            search_urls.extend(build_search_urls(site, q, plat)[:6])
+            search_urls.extend(build_search_urls(site, q, plat)[:3])
 
-    for search_url in unique_keep_order(search_urls)[:45]:
-        attempted.append(search_url)
+    search_urls = unique_keep_order(search_urls)[:MAX_SEARCH_REQUESTS]
+    attempted.extend(search_urls)
+
+    async def inspect_search(search_url: str):
         try:
             validate_target_url(search_url)
-            response = await client.get(search_url, timeout=CRAWL_TIMEOUT, follow_redirects=True)
+            response = await client.get(
+                search_url,
+                timeout=CRAWL_TIMEOUT,
+                follow_redirects=True,
+            )
             if response.status_code >= 400:
-                continue
+                return []
+
             ctype = response.headers.get("content-type", "").lower()
             if "json" in ctype or response.text.lstrip().startswith(("{", "[")):
                 try:
                     data = response.json()
-                    for link, label, score in json_api_candidates(data, str(response.url), requested, identifier):
-                        all_candidates[link] = max(all_candidates.get(link, 0), score + 0.12)
-                    continue
+                    return [
+                        (link, score + 0.12)
+                        for link, _label, score in json_api_candidates(
+                            data, str(response.url), requested, identifier
+                        )
+                    ]
                 except Exception:
-                    pass
-            html = response.content[:MAX_HTML_BYTES].decode(response.encoding or "utf-8", errors="replace")
-            detected = detect_platform(html, str(response.url), "auto")
+                    return []
+
+            html = response.content[:MAX_HTML_BYTES].decode(
+                response.encoding or "utf-8", errors="replace"
+            )
+            found: list[tuple[str, float]] = []
             for link, label in candidate_links(html, str(response.url)):
                 score = score_candidate(link, label, requested, identifier)
                 if score >= 0.20:
-                    all_candidates[link] = max(all_candidates.get(link, 0), score)
+                    found.append((link, score))
+
             soup = BeautifulSoup(html, "html.parser")
             for block in parse_json_ld(soup):
                 for node in flatten_jsonld(block):
                     link = absolute_url(str(response.url), first_nonempty(node.get("url")))
-                    if link:
-                        score = score_candidate(link, node.get("name", ""), requested, identifier)
-                        if score >= 0.18:
-                            all_candidates[link] = max(all_candidates.get(link, 0), score + 0.08)
-            if detected != "generic":
-                warnings.append(f"Detected {PLATFORM_NAMES.get(detected, detected)}.")
+                    if not link or not valid_http_url(link):
+                        continue
+                    score = score_candidate(
+                        link, node.get("name", ""), requested, identifier
+                    )
+                    if score >= 0.18:
+                        found.append((link, score + 0.08))
+            return found
         except Exception as exc:
-            if len(warnings) < 5:
-                warnings.append(f"Search attempt failed: {type(exc).__name__}")
+            return [("__WARNING__", f"Search attempt failed: {type(exc).__name__}")]
 
+    # Run search endpoints concurrently with a hard overall deadline.
+    try:
+        batches = await asyncio.wait_for(
+            asyncio.gather(*(inspect_search(url) for url in search_urls), return_exceptions=True),
+            timeout=DISCOVERY_DEADLINE,
+        )
+        for batch in batches:
+            if isinstance(batch, Exception):
+                continue
+            for item in batch:
+                if not item:
+                    continue
+                link, score = item
+                if link == "__WARNING__":
+                    if len(warnings) < 5:
+                        warnings.append(score)
+                    continue
+                all_candidates[link] = max(all_candidates.get(link, 0), score)
+    except asyncio.TimeoutError:
+        warnings.append(f"Search discovery timed out after {int(DISCOVERY_DEADLINE)}s; continuing with sitemap/direct checks.")
+
+    # Sitemap is a fallback, not the main path. Keep it bounded too.
     try:
         robots_url = site + "robots.txt"
         attempted.append(robots_url)
         response = await client.get(robots_url, timeout=CRAWL_TIMEOUT, follow_redirects=True)
         if response.status_code < 400:
-            sitemap_urls = re.findall(r"(?im)^\s*Sitemap:\s*(\S+)", response.text) or [site + "sitemap.xml"]
-            for sitemap in sitemap_urls[:3]:
+            sitemap_urls = re.findall(
+                r"(?im)^\s*Sitemap:\s*(\S+)", response.text
+            ) or [site + "sitemap.xml"]
+            for sitemap in sitemap_urls[:2]:
                 attempted.append(sitemap)
                 try:
                     sm = await client.get(sitemap, timeout=CRAWL_TIMEOUT, follow_redirects=True)
                     if sm.status_code >= 400:
                         continue
-                    locs = re.findall(r"<loc>\s*(.*?)\s*</loc>", sm.text, flags=re.I | re.S)
-                    for loc in locs[:3000]:
+                    locs = re.findall(
+                        r"<loc>\s*(.*?)\s*</loc>", sm.text, flags=re.I | re.S
+                    )
+                    for loc in locs[:2000]:
                         loc = clean_text(loc)
                         if urlparse(loc).netloc != urlparse(site).netloc:
                             continue
                         score = score_candidate(loc, loc, requested, identifier)
                         if score >= 0.30:
-                            all_candidates[loc] = max(all_candidates.get(loc, 0), score * 0.95)
+                            all_candidates[loc] = max(
+                                all_candidates.get(loc, 0), score * 0.95
+                            )
                 except Exception as exc:
                     if len(warnings) < 5:
                         warnings.append(f"Sitemap attempt failed: {type(exc).__name__}")
     except Exception as exc:
-        warnings.append(f"Sitemap discovery failed: {type(exc).__name__}")
+        if len(warnings) < 5:
+            warnings.append(f"Sitemap discovery failed: {type(exc).__name__}")
 
-    return sorted(all_candidates.items(), key=lambda x: x[1], reverse=True)[:MAX_CANDIDATES], warnings, attempted
+    return (
+        sorted(all_candidates.items(), key=lambda x: x[1], reverse=True)[:MAX_CANDIDATES],
+        warnings,
+        attempted,
+    )
 
 
 def fallback_sku(title: str, url: str) -> str:
