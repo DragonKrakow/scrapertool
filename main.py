@@ -620,35 +620,35 @@ def score_candidate(url: str, label: str, requested: str, identifier: str = "") 
     slug = normalize_text(urlparse(url).path.replace("-", " ").replace("_", " "))
     if not target:
         return 0.0
-
     target_tokens = tokens(target)
     cand_tokens = tokens(candidate)
     slug_tokens = tokens(slug)
-
     overlap_label = len(target_tokens & cand_tokens) / max(1, len(target_tokens))
     overlap_slug = len(target_tokens & slug_tokens) / max(1, len(target_tokens))
     seq_label = SequenceMatcher(None, target, candidate).ratio() if candidate else 0.0
     seq_slug = SequenceMatcher(None, target, slug).ratio() if slug else 0.0
-
-    score = (
-        overlap_label * 0.42
-        + overlap_slug * 0.28
-        + seq_label * 0.18
-        + seq_slug * 0.12
+    fuzzy_label = (
+        sum(max(SequenceMatcher(None, a, b).ratio() for b in cand_tokens)
+            for a in target_tokens) / len(target_tokens)
+        if target_tokens and cand_tokens else 0.0
     )
-
+    fuzzy_slug = (
+        sum(max(SequenceMatcher(None, a, b).ratio() for b in slug_tokens)
+            for a in target_tokens) / len(target_tokens)
+        if target_tokens and slug_tokens else 0.0
+    )
+    score = (
+        overlap_label * 0.25 + overlap_slug * 0.18 +
+        seq_label * 0.12 + seq_slug * 0.08 +
+        fuzzy_label * 0.22 + fuzzy_slug * 0.15
+    )
     if identifier:
         ident = normalize_text(identifier)
         if ident and ident in normalize_text(url + " " + label):
             score += 0.20
-
-    # Product-like URL hints.
     low_path = urlparse(url).path.lower()
-    for hint in ("/product/", "/products/", "/catalog/", "/p/", "/item/"):
-        if hint in low_path:
-            score += 0.04
-            break
-
+    if any(h in low_path for h in ("/product/", "/products/", "/catalog/", "/p/", "/item/", ".html")):
+        score += 0.04
     return min(score, 1.0)
 
 
@@ -718,74 +718,85 @@ def json_api_candidates(data: Any, base: str, requested: str, identifier: str) -
 
 
 async def discover_candidates(
-    client: httpx.AsyncClient,
-    site: str,
-    requested: str,
-    identifier: str,
-    platform: str,
-) -> tuple[list[tuple[str, float]], list[str]]:
-    warnings = []
+    client: httpx.AsyncClient, site: str, requested: str, identifier: str, platform: str
+) -> tuple[list[tuple[str, float]], list[str], list[str]]:
+    warnings, attempted = [], []
     all_candidates: dict[str, float] = {}
+    platforms = ([platform] if platform != "auto" else
+                 ["prestashop","woocommerce","shopify","magento","opencart","shopware","bigcommerce","generic"])
+    queries = [requested] + ([identifier] if identifier and identifier != requested else [])
+    words = [x for x in clean_text(requested).split() if len(x) >= 3]
+    if len(words) > 1:
+        queries.extend(words[:3])
 
-    for search_url in build_search_urls(site, requested, platform)[:10]:
+    search_urls = []
+    for q in queries:
+        for plat in platforms:
+            search_urls.extend(build_search_urls(site, q, plat)[:6])
+
+    for search_url in unique_keep_order(search_urls)[:45]:
+        attempted.append(search_url)
         try:
             validate_target_url(search_url)
             response = await client.get(search_url, timeout=CRAWL_TIMEOUT, follow_redirects=True)
             if response.status_code >= 400:
                 continue
             ctype = response.headers.get("content-type", "").lower()
-
             if "json" in ctype or response.text.lstrip().startswith(("{", "[")):
                 try:
                     data = response.json()
-                    for link, _, score in json_api_candidates(data, str(response.url), requested, identifier):
+                    for link, label, score in json_api_candidates(data, str(response.url), requested, identifier):
                         all_candidates[link] = max(all_candidates.get(link, 0), score + 0.12)
                     continue
                 except Exception:
                     pass
-
             html = response.content[:MAX_HTML_BYTES].decode(response.encoding or "utf-8", errors="replace")
-            # Re-detect from search response if auto mode chose generic.
-            detected = detect_platform(html, str(response.url), platform)
-            links = candidate_links(html, str(response.url))
-            for link, label in links:
+            detected = detect_platform(html, str(response.url), "auto")
+            for link, label in candidate_links(html, str(response.url)):
                 score = score_candidate(link, label, requested, identifier)
                 if score >= 0.20:
                     all_candidates[link] = max(all_candidates.get(link, 0), score)
+            soup = BeautifulSoup(html, "html.parser")
+            for block in parse_json_ld(soup):
+                for node in flatten_jsonld(block):
+                    link = absolute_url(str(response.url), first_nonempty(node.get("url")))
+                    if link:
+                        score = score_candidate(link, node.get("name", ""), requested, identifier)
+                        if score >= 0.18:
+                            all_candidates[link] = max(all_candidates.get(link, 0), score + 0.08)
             if detected != "generic":
-                platform = detected
-        except Exception:
-            continue
+                warnings.append(f"Detected {PLATFORM_NAMES.get(detected, detected)}.")
+        except Exception as exc:
+            if len(warnings) < 5:
+                warnings.append(f"Search attempt failed: {type(exc).__name__}")
 
-    # robots/sitemap fallback. Keep deliberately bounded for free hosting.
     try:
         robots_url = site + "robots.txt"
+        attempted.append(robots_url)
         response = await client.get(robots_url, timeout=CRAWL_TIMEOUT, follow_redirects=True)
         if response.status_code < 400:
-            sitemap_urls = re.findall(r"(?im)^\s*Sitemap:\s*(\S+)", response.text)
-            if not sitemap_urls:
-                sitemap_urls = [site + "sitemap.xml"]
+            sitemap_urls = re.findall(r"(?im)^\s*Sitemap:\s*(\S+)", response.text) or [site + "sitemap.xml"]
             for sitemap in sitemap_urls[:3]:
+                attempted.append(sitemap)
                 try:
                     sm = await client.get(sitemap, timeout=CRAWL_TIMEOUT, follow_redirects=True)
                     if sm.status_code >= 400:
                         continue
-                    text = sm.text
-                    locs = re.findall(r"<loc>\s*(.*?)\s*</loc>", text, flags=re.I | re.S)
-                    for loc in locs[:2000]:
+                    locs = re.findall(r"<loc>\s*(.*?)\s*</loc>", sm.text, flags=re.I | re.S)
+                    for loc in locs[:3000]:
                         loc = clean_text(loc)
                         if urlparse(loc).netloc != urlparse(site).netloc:
                             continue
                         score = score_candidate(loc, loc, requested, identifier)
-                        if score >= 0.28:
-                            all_candidates[loc] = max(all_candidates.get(loc, 0), score * 0.9)
-                except Exception:
-                    continue
-    except Exception:
-        warnings.append("Sitemap discovery was unavailable.")
+                        if score >= 0.30:
+                            all_candidates[loc] = max(all_candidates.get(loc, 0), score * 0.95)
+                except Exception as exc:
+                    if len(warnings) < 5:
+                        warnings.append(f"Sitemap attempt failed: {type(exc).__name__}")
+    except Exception as exc:
+        warnings.append(f"Sitemap discovery failed: {type(exc).__name__}")
 
-    ranked = sorted(all_candidates.items(), key=lambda x: x[1], reverse=True)
-    return ranked[:MAX_CANDIDATES], warnings
+    return sorted(all_candidates.items(), key=lambda x: x[1], reverse=True)[:MAX_CANDIDATES], warnings, attempted
 
 
 def fallback_sku(title: str, url: str) -> str:
@@ -822,20 +833,18 @@ async def scrape_one(
             root = site_root(site)
             validate_target_url(root)
 
-            root_html, root_final = await fetch_text(client, root)
-            platform = detect_platform(root_html, root_final, requested_platform)
-
-            # If the requested platform is Auto-detect and the homepage is inconclusive,
-            # search responses can still reveal the platform.
-            candidates, discover_warnings = await discover_candidates(
+            # Do not make the supplier homepage a hard dependency. Some shops have
+            # slow/WAF-protected homepages while their search/product URLs work.
+            platform = requested_platform
+            candidates, discover_warnings, attempted = await discover_candidates(
                 client, root, title or identifier, identifier, platform
             )
             warnings.extend(discover_warnings)
 
             if not candidates:
                 raise ValueError(
-                    "No product candidate was found. Try the Direct product URL tab "
-                    "or choose a platform manually."
+                    "No product candidate was found after trying search endpoints "
+                    "and sitemap. Try the exact supplier title, SKU/EAN, or Direct URL."
                 )
 
             best_url, match_score = candidates[0]
@@ -866,6 +875,17 @@ async def scrape_one(
         result["platform"] = platform
         result["platform_name"] = PLATFORM_NAMES.get(platform, platform)
         result["warnings"] = warnings
+        if not direct_url:
+            result["debug"] = {
+                "requested_title": title,
+                "requested_id": identifier,
+                "candidate_count": len(candidates) if "candidates" in locals() else 0,
+                "attempted_search_count": len(attempted) if "attempted" in locals() else 0,
+                "top_candidates": [
+                    {"url": u, "score": round(sc, 4)}
+                    for u, sc in (candidates[:5] if "candidates" in locals() else [])
+                ],
+            }
 
         if match_score < 0.55 and not direct_url:
             result["status"] = "review"
@@ -887,6 +907,12 @@ async def scrape_one(
             "platform": requested_platform,
             "platform_name": PLATFORM_NAMES.get(requested_platform, requested_platform),
             "warnings": warnings,
+            "debug": {
+                "requested_title": title,
+                "requested_id": identifier,
+                "site": site,
+                "platform": requested_platform,
+            },
         }
 
 
