@@ -123,6 +123,7 @@
         <tbody id="resultBody"></tbody>
       </table>
     </div>
+    <div id="debugBox" style="display:none;margin-top:14px;padding:12px;border:1px solid #fecaca;background:#fff7f7;border-radius:10px;font-size:12px"></div>
   </div>
 
   <div class="footer">Scrapertool uses bounded HTTP/HTML discovery and public product data. No paid AI/API is required.</div>
@@ -199,7 +200,7 @@ function renderResults(data) {
       : "—";
     return `<tr>
       <td><span class="pill ${cls}">${escapeHtml(status)}</span></td>
-      <td><b>${escapeHtml(r.title || r.requested_title || "—")}</b><br><span style="color:#64748b">${escapeHtml(r.brand || "")}</span></td>
+      <td><b>${escapeHtml(r.title || r.requested_title || "—")}</b><br><span style="color:#64748b">${escapeHtml(r.brand || "")}</span>${r.error ? `<div style="color:#b91c1c;margin-top:6px;font-size:12px"><b>Error:</b> ${escapeHtml(r.error)}</div>` : ""}${r.warnings?.length ? `<div style="color:#92400e;margin-top:4px;font-size:11px">${escapeHtml(r.warnings.join(" · "))}</div>` : ""}</td>
       <td>${escapeHtml(sku)}</td>
       <td>${money(r)}</td>
       <td>${escapeHtml(r.platform_name || r.platform || "—")}</td>
@@ -208,6 +209,19 @@ function renderResults(data) {
       <td>${source}</td>
     </tr>`;
   }).join("");
+
+  const failed = lastResults.filter(r => r.error);
+  const debugBox = $("debugBox");
+  if (failed.length) {
+    debugBox.style.display = "block";
+    debugBox.innerHTML = "<b>Why it failed:</b><br>" + failed.map(r =>
+      `${escapeHtml(r.requested_title || r.title || "")}: ${escapeHtml(r.error || "Unknown error")}<br>
+       <span style="color:#64748b">Platform: ${escapeHtml(r.platform_name || r.platform || "auto")} · Attempts: ${escapeHtml(r.debug?.attempted_search_count ?? "—")}</span>`
+    ).join("<hr style='border:0;border-top:1px solid #fecaca;margin:8px 0'>");
+  } else {
+    debugBox.style.display = "none";
+    debugBox.innerHTML = "";
+  }
 }
 
 async function generate() {
