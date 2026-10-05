@@ -247,17 +247,27 @@ async function generate() {
       products = lines.map(url => ({id:"", title:"", qty:defaultQty, url}));
     }
 
-    const response = await fetch(API_BASE + "/scrape", {
-      method: "POST",
-      headers: {"Content-Type":"application/json"},
-      body: JSON.stringify({products, site, default_qty:defaultQty, platform})
-    });
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 45000);
+    let response;
+    try {
+      response = await fetch(API_BASE + "/scrape", {
+        method: "POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({products, site, default_qty:defaultQty, platform}),
+        signal: controller.signal
+      });
+    } finally {
+      clearTimeout(timeoutId);
+    }
 
     const data = await response.json();
     if (!response.ok) throw new Error(data.detail || "Scrape failed.");
     renderResults(data);
   } catch (e) {
-    alert(e.message || "Something went wrong.");
+    alert(e.name === "AbortError"
+      ? "Scraping took too long. The request was stopped. Try an exact product title or Direct URL."
+      : (e.message || "Something went wrong."));
   } finally {
     btn.disabled = false;
     btn.textContent = "Generate products";
